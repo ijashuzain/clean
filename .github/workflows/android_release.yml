@@ -1,0 +1,98 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    name: Create Android Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download Android keystore
+        id: android_keystore
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: upload-keystore.jks
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Create key.properties
+        run: |
+          echo "storeFile=${{ steps.android_keystore.outputs.filePath }}" > android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: "17"
+          cache: gradle
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.3"
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Android Bundle
+        run: flutter build appbundle
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Extract Package Name and Version
+        id: extract_info
+        run: |
+          # Adapted for .kts: applicationId = "com.example"
+          PACKAGE_NAME=$(grep -Po 'applicationId\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
+          VERSION_NAME=$(grep -Po "version: \K\d+\.\d+\.\d+" pubspec.yaml)
+          BUILD_NUMBER=$(grep -Po "version: \K\d+\.\d+\.\d+\+\K\d+" pubspec.yaml)
+          TAG_NAME="v${VERSION_NAME}+${BUILD_NUMBER}"
+          FILE_NAME="${PACKAGE_NAME}.v${VERSION_NAME}+${BUILD_NUMBER}"
+          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "FILE_NAME=${FILE_NAME}" # For debugging
+          echo "TAG_NAME=${TAG_NAME}"   # For debugging
+
+      - name: Rename BUNDLE File
+        run: mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/${{env.FILE_NAME}}.aab
+
+      - name: Rename APK File
+        run: mv build/app/outputs/apk/release/app-release.apk build/app/outputs/apk/release/${{env.FILE_NAME}}.apk
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/app/outputs/bundle/release/${{env.FILE_NAME}}.aab
+            build/app/outputs/apk/release/${{env.FILE_NAME}}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload apk file to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        with:
+          target: build/app/outputs/apk/release/${{env.FILE_NAME}}.apk
+          credentials: ${{ secrets.SERVICE_ACCOUNT_CREDENTIAL }}
+          parent_folder_id: ${{ secrets.DRIVE_FOLDER_ID }}
+          child_folder: ${{env.TAG_NAME}}
+
+      - name: Upload appbundle file to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        with:
+          target: build/app/outputs/bundle/release/${{env.FILE_NAME}}.aab
+          credentials: ${{ secrets.SERVICE_ACCOUNT_CREDENTIAL }}
+          parent_folder_id: ${{ secrets.DRIVE_FOLDER_ID }}
+          child_folder: ${{env.TAG_NAME}}
