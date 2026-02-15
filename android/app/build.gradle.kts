@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.clean_sample"
+    namespace = "com.clean.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,12 +19,12 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.clean_sample"
+        applicationId = "com.clean.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -34,8 +37,8 @@ android {
         create("release") {
             val keyPropertiesFile = rootProject.file("key.properties")
             if (keyPropertiesFile.exists()) {
-                val keyProperties = java.util.Properties()
-                keyProperties.load(java.io.FileInputStream(keyPropertiesFile))
+                val keyProperties = Properties()
+                keyProperties.load(FileInputStream(keyPropertiesFile))
                 keyAlias = keyProperties.getProperty("keyAlias")
                 keyPassword = keyProperties.getProperty("keyPassword")
                 storeFile = file(keyProperties.getProperty("storeFile"))
@@ -48,6 +51,7 @@ android {
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

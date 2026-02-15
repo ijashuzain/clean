@@ -55,7 +55,6 @@ jobs:
       - name: Extract Package Name and Version
         id: extract_info
         run: |
-          # Adapted for .kts: applicationId = "com.example"
           PACKAGE_NAME=$(grep -Po 'applicationId\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
           VERSION_NAME=$(grep -Po "version: \K\d+\.\d+\.\d+" pubspec.yaml)
           BUILD_NUMBER=$(grep -Po "version: \K\d+\.\d+\.\d+\+\K\d+" pubspec.yaml)
