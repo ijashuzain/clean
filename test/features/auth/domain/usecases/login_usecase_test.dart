@@ -1,8 +1,7 @@
-import 'package:clean_sample/core/failure/failure.dart';
-import 'package:clean_sample/core/utils/result/result.dart';
-import 'package:clean_sample/features/auth/domain/entities/app_user/app_user.dart';
-import 'package:clean_sample/features/auth/domain/repositories/auth_repository.dart';
-import 'package:clean_sample/features/auth/domain/usecases/login_usecase/login_usecase.dart';
+import 'package:logit/core/utils/result/result.dart';
+import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
+import 'package:logit/features/auth/domain/repositories/auth_repository.dart';
+import 'package:logit/features/auth/domain/usecases/login_usecase/login_usecase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -27,7 +26,9 @@ void main() {
 
   test('should get user from the repository when email is valid', () async {
     // arrange
-    when(mockAuthRepository.login(tEmail, tPassword)).thenAnswer((_) async => const Result.success(tUser));
+    when(
+      mockAuthRepository.login(tEmail, tPassword),
+    ).thenAnswer((_) async => const Result.success(tUser));
     // act
     final result = await usecase(tParams);
     // assert
@@ -38,7 +39,10 @@ void main() {
 
   test('should return ValidationFailure when email is invalid', () async {
     // arrange
-    final tInvalidParams = LoginParams(email: 'invalid-email', password: tPassword);
+    final tInvalidParams = LoginParams(
+      email: 'invalid-email',
+      password: tPassword,
+    );
     // act
     final result = await usecase(tInvalidParams);
     // assert

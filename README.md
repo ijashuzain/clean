@@ -1,17 +1,41 @@
-# clean_sample
+# logit
 
-A new Flutter project.
+`logit` is a clean-architecture Flutter task manager with:
 
-## Getting Started
+- Auth flow (local demo auth, session persistence)
+- Date-wise task timeline
+- Subtasks and notes
+- Light/Dark theme switching
+- `go_router` navigation with guarded routes
+- Hive local persistence designed for future remote integration
 
-This project is a starting point for a Flutter application.
+## Architecture
 
-A few resources to get you started if this is your first Flutter project:
+Authentication and Tasks both follow:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- `data` (datasources, models, repository implementations)
+- `domain` (entities, repositories, usecases)
+- `presentation` (Riverpod notifiers/providers + views/widgets)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# clean
+## Local Storage
+
+Hive boxes:
+
+- `auth_box` (users + current session)
+- `task_box` (tasks with subtasks)
+- `settings_box` (theme + onboarding)
+
+## Run
+
+```bash
+flutter pub get
+flutter pub run build_runner build --delete-conflicting-outputs
+flutter run
+```
+
+## Quality Checks
+
+```bash
+flutter analyze
+flutter test
+```

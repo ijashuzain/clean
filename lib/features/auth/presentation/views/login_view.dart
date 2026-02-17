@@ -1,11 +1,11 @@
-import 'package:clean_sample/core/widgets/primary_button.dart';
+import 'package:logit/core/router/route_paths.dart';
+import 'package:logit/core/widgets/custom_text_field.dart';
+import 'package:logit/core/widgets/primary_button.dart';
+import 'package:logit/features/auth/domain/usecases/login_usecase/login_usecase.dart';
+import 'package:logit/features/auth/presentation/providers/login_view_provider/login_view_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:clean_sample/core/widgets/custom_text_field.dart';
-import 'package:clean_sample/features/auth/domain/usecases/login_usecase/login_usecase.dart';
-import 'package:clean_sample/features/auth/presentation/providers/login_view_provider/login_view_provider.dart';
-import 'package:clean_sample/features/auth/presentation/views/signup_view.dart';
-import 'package:clean_sample/features/task/presentation/views/task_list_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
@@ -19,80 +19,104 @@ class _LoginViewState extends ConsumerState<LoginView> {
   final _passwordController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    ref.listenManual(loginViewProviderProvider, (previous, next) {
+      next.loginStatus.maybeWhen(
+        success: (_) => context.go(RoutePaths.tasks),
+        failure: (message) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
+        },
+        orElse: () {},
+      );
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  void _submit() {
+    ref
+        .read(loginViewProviderProvider.notifier)
+        .login(
+          LoginParams(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loginState = ref.watch(loginViewProviderProvider);
 
-    ref.listen(loginViewProviderProvider, (previous, next) {
-      next.loginStatus.maybeWhen(
-        success: (data) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const TaskListView()));
-        },
-        failure: (message) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-        },
-        orElse: () {},
-      );
-    });
-
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 48),
-              const Text(
-                'Welcome Back',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
+              const SizedBox(height: 42),
+              Text(
+                'Welcome back',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
-              Text('Please sign in to continue', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-              const SizedBox(height: 48),
+              Text(
+                'Sign in to continue with LogIt.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.color?.withValues(alpha: 0.72),
+                ),
+              ),
+              const SizedBox(height: 40),
               CustomTextField(
                 label: 'Email',
-                hint: 'Enter your email',
+                hint: 'you@example.com',
                 keyboardType: TextInputType.emailAddress,
                 controller: _emailController,
+                textInputAction: TextInputAction.next,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               CustomTextField(
                 label: 'Password',
-                hint: 'Enter your password',
+                hint: 'Minimum 6 characters',
                 isPassword: true,
                 controller: _passwordController,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
               PrimaryButton(
                 text: 'Login',
                 isLoading: loginState.loginStatus.isLoading,
-                onPressed: () {
-                  ref
-                      .read(loginViewProviderProvider.notifier)
-                      .login(LoginParams(email: _emailController.text, password: _passwordController.text));
-                },
+                onPressed: _submit,
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Don't have an account? ", style: TextStyle(color: Colors.grey[600])),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SignupView()));
-                    },
-                    child: const Text(
-                      'Sign Up',
-                      style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
+                  Text(
+                    'No account yet?',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.72),
                     ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push(RoutePaths.signup),
+                    child: const Text('Create one'),
                   ),
                 ],
               ),

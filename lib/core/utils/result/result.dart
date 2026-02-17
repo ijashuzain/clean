@@ -1,6 +1,6 @@
 // lib/core/utils/result.dart
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:clean_sample/core/failure/failure.dart';
+import 'package:logit/core/failure/failure.dart';
 
 part 'result.freezed.dart';
 

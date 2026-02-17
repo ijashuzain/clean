@@ -7,7 +7,7 @@ part of 'signup_view_provider.dart';
 // **************************************************************************
 
 String _$signupViewProviderHash() =>
-    r'3fb6c09b58745356c19251dd1c5d471611310f4e';
+    r'165135404eff011f80f907b1e7755a2da9dbb7f8';
 
 /// See also [SignupViewProvider].
 @ProviderFor(SignupViewProvider)

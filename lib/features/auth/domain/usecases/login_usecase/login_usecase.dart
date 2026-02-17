@@ -1,9 +1,9 @@
-import 'package:clean_sample/core/failure/failure.dart';
-import 'package:clean_sample/core/usecases/usecase.dart';
-import 'package:clean_sample/core/utils/result/result.dart';
-import 'package:clean_sample/features/auth/data/repositories/auth_repository_impl/auth_repository_impl.dart';
-import 'package:clean_sample/features/auth/domain/entities/app_user/app_user.dart';
-import 'package:clean_sample/features/auth/domain/repositories/auth_repository.dart';
+import 'package:logit/core/failure/failure.dart';
+import 'package:logit/core/usecases/usecase.dart';
+import 'package:logit/core/utils/result/result.dart';
+import 'package:logit/features/auth/data/repositories/auth_repository_impl/auth_repository_impl.dart';
+import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
+import 'package:logit/features/auth/domain/repositories/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -23,11 +23,17 @@ class LoginUseCase implements UseCase<AppUser, LoginParams> {
   @override
   Future<Result<AppUser>> call(LoginParams params) async {
     if (params.email.isEmpty || !params.email.contains('@')) {
-      return Result.failure(Failure.validationFailure(message: 'Invalid email address'));
+      return Result.failure(
+        Failure.validationFailure(message: 'Invalid email address'),
+      );
     }
 
     if (params.password.isEmpty || params.password.length < 6) {
-      return Result.failure(Failure.validationFailure(message: 'Password must be at least 6 characters'));
+      return Result.failure(
+        Failure.validationFailure(
+          message: 'Password must be at least 6 characters',
+        ),
+      );
     }
     return authRepository.login(params.email, params.password);
   }

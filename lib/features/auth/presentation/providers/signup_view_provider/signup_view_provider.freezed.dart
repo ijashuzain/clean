@@ -140,7 +140,7 @@ class __$$SignupViewStateImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$SignupViewStateImpl implements _SignupViewState {
-  _$SignupViewStateImpl({
+  const _$SignupViewStateImpl({
     this.signupStatus = const Status.initial(),
     this.user = const AppUser(),
   });
@@ -183,8 +183,10 @@ class _$SignupViewStateImpl implements _SignupViewState {
 }
 
 abstract class _SignupViewState implements SignupViewState {
-  factory _SignupViewState({final Status signupStatus, final AppUser user}) =
-      _$SignupViewStateImpl;
+  const factory _SignupViewState({
+    final Status signupStatus,
+    final AppUser user,
+  }) = _$SignupViewStateImpl;
 
   @override
   Status get signupStatus;

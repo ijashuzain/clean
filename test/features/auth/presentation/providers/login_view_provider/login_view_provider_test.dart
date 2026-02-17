@@ -1,8 +1,9 @@
-import 'package:clean_sample/core/utils/result/result.dart';
-import 'package:clean_sample/core/utils/status/status.dart';
-import 'package:clean_sample/features/auth/domain/entities/app_user/app_user.dart';
-import 'package:clean_sample/features/auth/domain/usecases/login_usecase/login_usecase.dart';
-import 'package:clean_sample/features/auth/presentation/providers/login_view_provider/login_view_provider.dart';
+import 'package:logit/core/utils/result/result.dart';
+import 'package:logit/core/utils/status/status.dart';
+import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
+import 'package:logit/features/auth/domain/usecases/login_usecase/login_usecase.dart';
+import 'package:logit/features/auth/presentation/providers/auth_session_provider/auth_session_provider.dart';
+import 'package:logit/features/auth/presentation/providers/login_view_provider/login_view_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
@@ -18,7 +19,12 @@ void main() {
   setUp(() {
     provideDummy<Result<AppUser>>(const Result.success(AppUser()));
     mockLoginUseCase = MockLoginUseCase();
-    container = ProviderContainer(overrides: [loginUseCaseProvider.overrideWithValue(mockLoginUseCase)]);
+    container = ProviderContainer(
+      overrides: [
+        loginUseCaseProvider.overrideWithValue(mockLoginUseCase),
+        authSessionNotifierProvider.overrideWith(FakeAuthSessionNotifier.new),
+      ],
+    );
   });
 
   tearDown(() {
@@ -32,7 +38,9 @@ void main() {
 
   test('login success updates state to success', () async {
     // arrange
-    when(mockLoginUseCase.call(tParams)).thenAnswer((_) async => const Result.success(tUser));
+    when(
+      mockLoginUseCase.call(tParams),
+    ).thenAnswer((_) async => const Result.success(tUser));
 
     // act
     final provider = container.read(loginViewProviderProvider.notifier);
@@ -59,4 +67,11 @@ void main() {
      // ... 
   });
 */
+}
+
+class FakeAuthSessionNotifier extends AuthSessionNotifier {
+  @override
+  AuthSessionState build() {
+    return const AuthSessionState(isReady: true);
+  }
 }
