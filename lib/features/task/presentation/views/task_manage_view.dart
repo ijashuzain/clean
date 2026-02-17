@@ -329,6 +329,18 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      'Emoji (optional)',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _emojiPickerField(),
+                    ),
+                    const SizedBox(height: 14),
                     CustomTextField(
                       label: 'Task',
                       hint: 'Enter your task',
@@ -343,14 +355,6 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 14),
-                    CustomTextField(
-                      label: 'Emoji (optional)',
-                      hint: 'Type from emoji keyboard',
-                      controller: _emojiController,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [_emojiFormatter],
-                    ),
-                    const SizedBox(height: 14),
                     Text(
                       'Start & End Date',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -359,28 +363,28 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     ),
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _compactPickerButton(
                             onPressed: _pickDate,
-                            icon: const Icon(Icons.calendar_month_rounded),
-                            label: Text(startDateLabel),
+                            icon: Icons.calendar_month_rounded,
+                            label: startDateLabel,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _compactPickerButton(
                             onPressed: _pickEndDate,
-                            icon: const Icon(Icons.event_repeat_rounded),
-                            label: Text(endDateLabel),
+                            icon: Icons.event_repeat_rounded,
+                            label: endDateLabel,
                           ),
                         ),
-                        if (_endDate != null)
-                          IconButton(
-                            tooltip: 'Clear end date',
-                            onPressed: () => setState(() => _endDate = null),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
+                        _buildClearActionSlot(
+                          visible: _endDate != null,
+                          tooltip: 'Clear end date',
+                          onPressed: () => setState(() => _endDate = null),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -392,42 +396,39 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     ),
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _compactPickerButton(
                             onPressed: () => _pickTime(isStart: true),
-                            icon: const Icon(Icons.play_circle_outline_rounded),
-                            label: Text(
-                              _formatMinuteLabel(
-                                _startMinuteOfDay,
-                                fallback: 'Start',
-                              ),
+                            icon: Icons.play_circle_outline_rounded,
+                            label: _formatMinuteLabel(
+                              _startMinuteOfDay,
+                              fallback: 'Start',
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _compactPickerButton(
                             onPressed: () => _pickTime(isStart: false),
-                            icon: const Icon(Icons.stop_circle_outlined),
-                            label: Text(
-                              _formatMinuteLabel(
-                                _endMinuteOfDay,
-                                fallback: 'End',
-                              ),
+                            icon: Icons.stop_circle_outlined,
+                            label: _formatMinuteLabel(
+                              _endMinuteOfDay,
+                              fallback: 'End',
                             ),
                           ),
                         ),
-                        if (_startMinuteOfDay != null ||
-                            _endMinuteOfDay != null)
-                          IconButton(
-                            onPressed: () => setState(() {
-                              _startMinuteOfDay = null;
-                              _endMinuteOfDay = null;
-                            }),
-                            icon: const Icon(Icons.close_rounded),
-                            tooltip: 'Clear time',
-                          ),
+                        _buildClearActionSlot(
+                          visible:
+                              _startMinuteOfDay != null ||
+                              _endMinuteOfDay != null,
+                          tooltip: 'Clear time',
+                          onPressed: () => setState(() {
+                            _startMinuteOfDay = null;
+                            _endMinuteOfDay = null;
+                          }),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -454,24 +455,44 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     ),
                     const SizedBox(height: 16),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
                           'Subtasks',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                        TextButton.icon(
-                          onPressed: _addSubTaskField,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Add subtask'),
+                        const Spacer(),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _addSubTaskField,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_rounded, size: 22),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Add subtask',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
                     ..._subTaskDrafts.asMap().entries.map(
                       (entry) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
                               child: TextField(
@@ -484,20 +505,33 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                                 ),
                               ),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                if (_subTaskDrafts.length == 1) {
-                                  _subTaskDrafts.first.controller.clear();
-                                  setState(() {});
-                                  return;
-                                }
-                                final draft = _subTaskDrafts.removeAt(
-                                  entry.key,
-                                );
-                                draft.controller.dispose();
-                                setState(() {});
-                              },
-                              icon: const Icon(Icons.delete_outline_rounded),
+                            SizedBox(
+                              width: 36,
+                              height: 54,
+                              child: Center(
+                                child: IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 28,
+                                    height: 28,
+                                  ),
+                                  onPressed: () {
+                                    if (_subTaskDrafts.length == 1) {
+                                      _subTaskDrafts.first.controller.clear();
+                                      setState(() {});
+                                      return;
+                                    }
+                                    final draft = _subTaskDrafts.removeAt(
+                                      entry.key,
+                                    );
+                                    draft.controller.dispose();
+                                    setState(() {});
+                                  },
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -523,6 +557,108 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
     final time = TimeOfDay(hour: minuteOfDay ~/ 60, minute: minuteOfDay % 60);
     return time.format(context);
+  }
+
+  Widget _compactPickerButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClearActionSlot({
+    required bool visible,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 36,
+      height: 50,
+      child: visible
+          ? Center(
+              child: IconButton(
+                tooltip: tooltip,
+                onPressed: onPressed,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 28,
+                ),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _emojiPickerField() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2F333D) : const Color(0xFFE3E0D5),
+        ),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 38,
+          child: TextField(
+            controller: _emojiController,
+            textInputAction: TextInputAction.next,
+            inputFormatters: [_emojiFormatter],
+            maxLines: 1,
+            minLines: 1,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 28, height: 1.0),
+            decoration: InputDecoration(
+              hintText: '😀',
+              hintStyle: TextStyle(
+                fontSize: 24,
+                color: Theme.of(context).hintColor.withValues(alpha: 0.45),
+              ),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
