@@ -21,7 +21,6 @@ class TaskListView extends ConsumerStatefulWidget {
 class _TaskListViewState extends ConsumerState<TaskListView> {
   final Set<String> _expandedTaskIds = <String>{};
   bool _hideFinishedTasks = false;
-  bool _hideFinishedTasks = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,16 +36,6 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     });
 
     final monthText = DateFormat('MMMM').format(state.selectedDate);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final isTodaySelected =
-        state.selectedDate.year == today.year &&
-        state.selectedDate.month == today.month &&
-        state.selectedDate.day == today.day;
-    final visibleTasks = _filterTasks(state.tasks);
-    final emptyTitle = _hideFinishedTasks
-        ? 'No unfinished tasks for this date'
-        : 'No tasks for this date';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final isTodaySelected =
