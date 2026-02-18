@@ -28,6 +28,20 @@ class TaskRepositoryImpl implements TaskRepository {
   });
 
   @override
+  Future<Result<List<Task>>> getAllTasks() async {
+    try {
+      final tasks =
+          (await localDataSource.getTasks())
+              .map((task) => task.toEntity())
+              .toList(growable: false)
+            ..sort(_sortByTimeThenCreation);
+      return Result.success(tasks);
+    } catch (e) {
+      return Result.failure(Failure.cacheFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Result<List<Task>>> getTasksByDate(DateTime date) async {
     try {
       final targetDate = DateTime(date.year, date.month, date.day);
@@ -107,6 +121,13 @@ class TaskRepositoryImpl implements TaskRepository {
       }
 
       final entity = task.toEntity();
+      if (_isLockedCompletedPastTask(entity)) {
+        return Result.failure(
+          Failure.clientFailure(
+            message: 'Completed tasks from previous days cannot be unchecked',
+          ),
+        );
+      }
       final updated = _toggleEntity(entity, subTaskId: subTaskId);
       await localDataSource.upsertTask(TaskModel.fromEntity(updated));
       return const Result.success(null);
@@ -187,6 +208,16 @@ class TaskRepositoryImpl implements TaskRepository {
     if (date.isBefore(scheduledDate)) {
       return false;
     }
+
+    // Carry forward unfinished tasks from any previous day to today.
+    if (_shouldCarryForwardUnfinishedTask(
+      task: task,
+      scheduledDate: scheduledDate,
+      date: date,
+    )) {
+      return true;
+    }
+
     if (endDate != null && date.isAfter(endDate)) {
       return false;
     }
@@ -201,6 +232,33 @@ class TaskRepositoryImpl implements TaskRepository {
     }
 
     return task.repeatsDaily && scheduledDate.isBefore(date);
+  }
+
+  bool _shouldCarryForwardUnfinishedTask({
+    required TaskModel task,
+    required DateTime scheduledDate,
+    required DateTime date,
+  }) {
+    if (task.isCompleted) {
+      return false;
+    }
+    final today = _toDateOnly(DateTime.now());
+    if (!_isSameDate(date, today)) {
+      return false;
+    }
+    return scheduledDate.isBefore(today);
+  }
+
+  bool _isLockedCompletedPastTask(Task task) {
+    if (!task.isCompleted) {
+      return false;
+    }
+    final today = _toDateOnly(DateTime.now());
+    return _toDateOnly(task.scheduledAt).isBefore(today);
+  }
+
+  DateTime _toDateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
   }
 
   bool _isEmoji(String value) {

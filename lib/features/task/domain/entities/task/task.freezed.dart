@@ -222,6 +222,8 @@ mixin _$Task {
   DateTime? get endDate => throw _privateConstructorUsedError;
   int? get startMinuteOfDay => throw _privateConstructorUsedError;
   int? get endMinuteOfDay => throw _privateConstructorUsedError;
+  DateTime? get reminderDate => throw _privateConstructorUsedError;
+  int? get reminderMinuteOfDay => throw _privateConstructorUsedError;
   bool get repeatsDaily => throw _privateConstructorUsedError;
   bool get isCompleted => throw _privateConstructorUsedError;
   List<SubTask> get subtasks => throw _privateConstructorUsedError;
@@ -252,6 +254,8 @@ abstract class $TaskCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTask> subtasks,
@@ -284,6 +288,8 @@ class _$TaskCopyWithImpl<$Res, $Val extends Task>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -327,6 +333,14 @@ class _$TaskCopyWithImpl<$Res, $Val extends Task>
             endMinuteOfDay: freezed == endMinuteOfDay
                 ? _value.endMinuteOfDay
                 : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            reminderDate: freezed == reminderDate
+                ? _value.reminderDate
+                : reminderDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            reminderMinuteOfDay: freezed == reminderMinuteOfDay
+                ? _value.reminderMinuteOfDay
+                : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
                       as int?,
             repeatsDaily: null == repeatsDaily
                 ? _value.repeatsDaily
@@ -372,6 +386,8 @@ abstract class _$$TaskImplCopyWith<$Res> implements $TaskCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTask> subtasks,
@@ -401,6 +417,8 @@ class __$$TaskImplCopyWithImpl<$Res>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -445,6 +463,14 @@ class __$$TaskImplCopyWithImpl<$Res>
             ? _value.endMinuteOfDay
             : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
                   as int?,
+        reminderDate: freezed == reminderDate
+            ? _value.reminderDate
+            : reminderDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        reminderMinuteOfDay: freezed == reminderMinuteOfDay
+            ? _value.reminderMinuteOfDay
+            : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int?,
         repeatsDaily: null == repeatsDaily
             ? _value.repeatsDaily
             : repeatsDaily // ignore: cast_nullable_to_non_nullable
@@ -483,6 +509,8 @@ class _$TaskImpl implements _Task {
     this.endDate,
     this.startMinuteOfDay,
     this.endMinuteOfDay,
+    this.reminderDate,
+    this.reminderMinuteOfDay,
     this.repeatsDaily = false,
     this.isCompleted = false,
     final List<SubTask> subtasks = const <SubTask>[],
@@ -515,6 +543,10 @@ class _$TaskImpl implements _Task {
   @override
   final int? endMinuteOfDay;
   @override
+  final DateTime? reminderDate;
+  @override
+  final int? reminderMinuteOfDay;
+  @override
   @JsonKey()
   final bool repeatsDaily;
   @override
@@ -536,7 +568,7 @@ class _$TaskImpl implements _Task {
 
   @override
   String toString() {
-    return 'Task(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Task(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, reminderDate: $reminderDate, reminderMinuteOfDay: $reminderMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -556,6 +588,10 @@ class _$TaskImpl implements _Task {
                 other.startMinuteOfDay == startMinuteOfDay) &&
             (identical(other.endMinuteOfDay, endMinuteOfDay) ||
                 other.endMinuteOfDay == endMinuteOfDay) &&
+            (identical(other.reminderDate, reminderDate) ||
+                other.reminderDate == reminderDate) &&
+            (identical(other.reminderMinuteOfDay, reminderMinuteOfDay) ||
+                other.reminderMinuteOfDay == reminderMinuteOfDay) &&
             (identical(other.repeatsDaily, repeatsDaily) ||
                 other.repeatsDaily == repeatsDaily) &&
             (identical(other.isCompleted, isCompleted) ||
@@ -580,6 +616,8 @@ class _$TaskImpl implements _Task {
     endDate,
     startMinuteOfDay,
     endMinuteOfDay,
+    reminderDate,
+    reminderMinuteOfDay,
     repeatsDaily,
     isCompleted,
     const DeepCollectionEquality().hash(_subtasks),
@@ -612,6 +650,8 @@ abstract class _Task implements Task {
     final DateTime? endDate,
     final int? startMinuteOfDay,
     final int? endMinuteOfDay,
+    final DateTime? reminderDate,
+    final int? reminderMinuteOfDay,
     final bool repeatsDaily,
     final bool isCompleted,
     final List<SubTask> subtasks,
@@ -639,6 +679,10 @@ abstract class _Task implements Task {
   int? get startMinuteOfDay;
   @override
   int? get endMinuteOfDay;
+  @override
+  DateTime? get reminderDate;
+  @override
+  int? get reminderMinuteOfDay;
   @override
   bool get repeatsDaily;
   @override

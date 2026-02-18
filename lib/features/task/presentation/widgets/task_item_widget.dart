@@ -10,6 +10,7 @@ class TaskItemWidget extends StatelessWidget {
   final ValueChanged<SubTask> onSubTaskChanged;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final bool interactionLocked;
 
   const TaskItemWidget({
     super.key,
@@ -20,6 +21,7 @@ class TaskItemWidget extends StatelessWidget {
     required this.onSubTaskChanged,
     required this.onTap,
     required this.onDelete,
+    this.interactionLocked = false,
   });
 
   bool _isEmoji(String value) {
@@ -36,7 +38,7 @@ class TaskItemWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: InkWell(
-        onTap: onTap,
+        onTap: interactionLocked ? null : onTap,
         onLongPress: onDelete,
         borderRadius: BorderRadius.circular(10),
         child: Stack(
@@ -220,7 +222,9 @@ class TaskItemWidget extends StatelessWidget {
                               (subtask) => Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: InkWell(
-                                  onTap: () => onSubTaskChanged(subtask),
+                                  onTap: interactionLocked
+                                      ? null
+                                      : () => onSubTaskChanged(subtask),
                                   child: Row(
                                     children: [
                                       Icon(
@@ -264,7 +268,7 @@ class TaskItemWidget extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: onTaskToggle,
+                  onTap: interactionLocked ? null : onTaskToggle,
                   child: Container(
                     width: 22,
                     height: 22,

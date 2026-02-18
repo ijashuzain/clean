@@ -33,6 +33,10 @@ _$TaskModelImpl _$$TaskModelImplFromJson(Map<String, dynamic> json) =>
           : DateTime.parse(json['endDate'] as String),
       startMinuteOfDay: (json['startMinuteOfDay'] as num?)?.toInt(),
       endMinuteOfDay: (json['endMinuteOfDay'] as num?)?.toInt(),
+      reminderDate: json['reminderDate'] == null
+          ? null
+          : DateTime.parse(json['reminderDate'] as String),
+      reminderMinuteOfDay: (json['reminderMinuteOfDay'] as num?)?.toInt(),
       repeatsDaily: json['repeatsDaily'] as bool? ?? false,
       isCompleted: json['isCompleted'] as bool,
       subtasks: (json['subtasks'] as List<dynamic>)
@@ -53,6 +57,8 @@ Map<String, dynamic> _$$TaskModelImplToJson(_$TaskModelImpl instance) =>
       'endDate': instance.endDate?.toIso8601String(),
       'startMinuteOfDay': instance.startMinuteOfDay,
       'endMinuteOfDay': instance.endMinuteOfDay,
+      'reminderDate': instance.reminderDate?.toIso8601String(),
+      'reminderMinuteOfDay': instance.reminderMinuteOfDay,
       'repeatsDaily': instance.repeatsDaily,
       'isCompleted': instance.isCompleted,
       'subtasks': instance.subtasks,

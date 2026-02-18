@@ -2,7 +2,6 @@ import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
-import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
 import 'package:logit/features/task/presentation/widgets/date_selector_strip.dart';
 import 'package:logit/features/task/presentation/widgets/task_item_widget.dart';
@@ -21,7 +20,6 @@ class TaskListView extends ConsumerStatefulWidget {
 class _TaskListViewState extends ConsumerState<TaskListView> {
   final Set<String> _expandedTaskIds = <String>{};
   bool _hideFinishedTasks = false;
-  bool _hideFinishedTasks = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,16 +35,6 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     });
 
     final monthText = DateFormat('MMMM').format(state.selectedDate);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final isTodaySelected =
-        state.selectedDate.year == today.year &&
-        state.selectedDate.month == today.month &&
-        state.selectedDate.day == today.day;
-    final visibleTasks = _filterTasks(state.tasks);
-    final emptyTitle = _hideFinishedTasks
-        ? 'No unfinished tasks for this date'
-        : 'No tasks for this date';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final isTodaySelected =
@@ -348,82 +336,98 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   : Column(
                       children: [
                         for (var i = 0; i < tasks.length; i++)
-                          Dismissible(
-                            key: ValueKey(tasks[i].id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDC4E4E),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                            confirmDismiss: (_) async {
-                              return await showDialog<bool>(
-                                    context: context,
-                                    builder: (dialogContext) {
-                                      return AlertDialog(
-                                        title: const Text('Delete task?'),
-                                        content: const Text(
-                                          'This task will be removed permanently.',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(
-                                              dialogContext,
-                                            ).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(
-                                              dialogContext,
-                                            ).pop(true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ) ??
-                                  false;
-                            },
-                            onDismissed: (_) {
-                              ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(tasks[i].id);
-                            },
-                            child: TaskItemWidget(
-                              task: tasks[i],
-                              subtasksExpanded: _expandedTaskIds.contains(
-                                tasks[i].id,
-                              ),
-                              onToggleSubtasks: () {
-                                setState(() {
-                                  if (!_expandedTaskIds.add(tasks[i].id)) {
-                                    _expandedTaskIds.remove(tasks[i].id);
-                                  }
-                                });
-                              },
-                              onTaskToggle: () => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .toggleTask(taskId: tasks[i].id),
-                              onSubTaskChanged: (subtask) => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .toggleTask(
-                                    taskId: tasks[i].id,
-                                    subTaskId: subtask.id,
+                          Builder(
+                            builder: (context) {
+                              final task = tasks[i];
+                              final interactionLocked =
+                                  _isPreviousDayCompletedTask(task);
+                              return Dismissible(
+                                key: ValueKey(task.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDC4E4E),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                              onTap: () => context.push(
-                                '${RoutePaths.taskManage}?id=${tasks[i].id}',
-                              ),
-                              onDelete: () => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(tasks[i].id),
-                            ),
+                                  child: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                confirmDismiss: (_) async {
+                                  return await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogContext) {
+                                          return AlertDialog(
+                                            title: const Text('Delete task?'),
+                                            content: const Text(
+                                              'This task will be removed permanently.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(
+                                                  dialogContext,
+                                                ).pop(false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.of(
+                                                  dialogContext,
+                                                ).pop(true),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ) ??
+                                      false;
+                                },
+                                onDismissed: (_) {
+                                  ref
+                                      .read(
+                                        taskTimelineProviderProvider.notifier,
+                                      )
+                                      .deleteTask(task.id);
+                                },
+                                child: TaskItemWidget(
+                                  task: task,
+                                  interactionLocked: interactionLocked,
+                                  subtasksExpanded: _expandedTaskIds.contains(
+                                    task.id,
+                                  ),
+                                  onToggleSubtasks: () {
+                                    setState(() {
+                                      if (!_expandedTaskIds.add(task.id)) {
+                                        _expandedTaskIds.remove(task.id);
+                                      }
+                                    });
+                                  },
+                                  onTaskToggle: () => ref
+                                      .read(
+                                        taskTimelineProviderProvider.notifier,
+                                      )
+                                      .toggleTask(taskId: task.id),
+                                  onSubTaskChanged: (subtask) => ref
+                                      .read(
+                                        taskTimelineProviderProvider.notifier,
+                                      )
+                                      .toggleTask(
+                                        taskId: task.id,
+                                        subTaskId: subtask.id,
+                                      ),
+                                  onTap: () => context.push(
+                                    '${RoutePaths.taskManage}?id=${task.id}',
+                                  ),
+                                  onDelete: () => ref
+                                      .read(
+                                        taskTimelineProviderProvider.notifier,
+                                      )
+                                      .deleteTask(task.id),
+                                ),
+                              );
+                            },
                           ),
                       ],
                     ),
@@ -449,6 +453,20 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     }
     return task.subtasks.isNotEmpty &&
         task.subtasks.every((subtask) => subtask.isCompleted);
+  }
+
+  bool _isPreviousDayCompletedTask(Task task) {
+    if (!task.isCompleted) {
+      return false;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final scheduled = DateTime(
+      task.scheduledAt.year,
+      task.scheduledAt.month,
+      task.scheduledAt.day,
+    );
+    return scheduled.isBefore(today);
   }
 
   void _toggleTaskFilter() {

@@ -14,6 +14,7 @@ class CustomTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final List<TextInputFormatter>? inputFormatters;
   final bool compact;
+  final bool readOnly;
 
   const CustomTextField({
     super.key,
@@ -29,6 +30,7 @@ class CustomTextField extends StatelessWidget {
     this.onChanged,
     this.inputFormatters,
     this.compact = false,
+    this.readOnly = false,
   });
 
   @override
@@ -58,6 +60,7 @@ class CustomTextField extends StatelessWidget {
         SizedBox(height: compact ? 6 : 8),
         TextField(
           controller: controller,
+          readOnly: readOnly,
           obscureText: isPassword,
           keyboardType: resolvedKeyboardType,
           maxLines: maxLines,

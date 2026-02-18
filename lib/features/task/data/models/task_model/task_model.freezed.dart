@@ -227,6 +227,8 @@ mixin _$TaskModel {
   DateTime? get endDate => throw _privateConstructorUsedError;
   int? get startMinuteOfDay => throw _privateConstructorUsedError;
   int? get endMinuteOfDay => throw _privateConstructorUsedError;
+  DateTime? get reminderDate => throw _privateConstructorUsedError;
+  int? get reminderMinuteOfDay => throw _privateConstructorUsedError;
   bool get repeatsDaily => throw _privateConstructorUsedError;
   bool get isCompleted => throw _privateConstructorUsedError;
   List<SubTaskModel> get subtasks => throw _privateConstructorUsedError;
@@ -258,6 +260,8 @@ abstract class $TaskModelCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTaskModel> subtasks,
@@ -290,6 +294,8 @@ class _$TaskModelCopyWithImpl<$Res, $Val extends TaskModel>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -333,6 +339,14 @@ class _$TaskModelCopyWithImpl<$Res, $Val extends TaskModel>
             endMinuteOfDay: freezed == endMinuteOfDay
                 ? _value.endMinuteOfDay
                 : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            reminderDate: freezed == reminderDate
+                ? _value.reminderDate
+                : reminderDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            reminderMinuteOfDay: freezed == reminderMinuteOfDay
+                ? _value.reminderMinuteOfDay
+                : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
                       as int?,
             repeatsDaily: null == repeatsDaily
                 ? _value.repeatsDaily
@@ -379,6 +393,8 @@ abstract class _$$TaskModelImplCopyWith<$Res>
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTaskModel> subtasks,
@@ -410,6 +426,8 @@ class __$$TaskModelImplCopyWithImpl<$Res>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -454,6 +472,14 @@ class __$$TaskModelImplCopyWithImpl<$Res>
             ? _value.endMinuteOfDay
             : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
                   as int?,
+        reminderDate: freezed == reminderDate
+            ? _value.reminderDate
+            : reminderDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        reminderMinuteOfDay: freezed == reminderMinuteOfDay
+            ? _value.reminderMinuteOfDay
+            : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int?,
         repeatsDaily: null == repeatsDaily
             ? _value.repeatsDaily
             : repeatsDaily // ignore: cast_nullable_to_non_nullable
@@ -492,6 +518,8 @@ class _$TaskModelImpl extends _TaskModel {
     this.endDate,
     this.startMinuteOfDay,
     this.endMinuteOfDay,
+    this.reminderDate,
+    this.reminderMinuteOfDay,
     this.repeatsDaily = false,
     required this.isCompleted,
     required final List<SubTaskModel> subtasks,
@@ -522,6 +550,10 @@ class _$TaskModelImpl extends _TaskModel {
   @override
   final int? endMinuteOfDay;
   @override
+  final DateTime? reminderDate;
+  @override
+  final int? reminderMinuteOfDay;
+  @override
   @JsonKey()
   final bool repeatsDaily;
   @override
@@ -541,7 +573,7 @@ class _$TaskModelImpl extends _TaskModel {
 
   @override
   String toString() {
-    return 'TaskModel(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'TaskModel(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, reminderDate: $reminderDate, reminderMinuteOfDay: $reminderMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -561,6 +593,10 @@ class _$TaskModelImpl extends _TaskModel {
                 other.startMinuteOfDay == startMinuteOfDay) &&
             (identical(other.endMinuteOfDay, endMinuteOfDay) ||
                 other.endMinuteOfDay == endMinuteOfDay) &&
+            (identical(other.reminderDate, reminderDate) ||
+                other.reminderDate == reminderDate) &&
+            (identical(other.reminderMinuteOfDay, reminderMinuteOfDay) ||
+                other.reminderMinuteOfDay == reminderMinuteOfDay) &&
             (identical(other.repeatsDaily, repeatsDaily) ||
                 other.repeatsDaily == repeatsDaily) &&
             (identical(other.isCompleted, isCompleted) ||
@@ -585,6 +621,8 @@ class _$TaskModelImpl extends _TaskModel {
     endDate,
     startMinuteOfDay,
     endMinuteOfDay,
+    reminderDate,
+    reminderMinuteOfDay,
     repeatsDaily,
     isCompleted,
     const DeepCollectionEquality().hash(_subtasks),
@@ -617,6 +655,8 @@ abstract class _TaskModel extends TaskModel {
     final DateTime? endDate,
     final int? startMinuteOfDay,
     final int? endMinuteOfDay,
+    final DateTime? reminderDate,
+    final int? reminderMinuteOfDay,
     final bool repeatsDaily,
     required final bool isCompleted,
     required final List<SubTaskModel> subtasks,
@@ -646,6 +686,10 @@ abstract class _TaskModel extends TaskModel {
   int? get startMinuteOfDay;
   @override
   int? get endMinuteOfDay;
+  @override
+  DateTime? get reminderDate;
+  @override
+  int? get reminderMinuteOfDay;
   @override
   bool get repeatsDaily;
   @override

@@ -42,6 +42,8 @@ class TaskModel with _$TaskModel {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     @Default(false) bool repeatsDaily,
     required bool isCompleted,
     required List<SubTaskModel> subtasks,
@@ -63,6 +65,8 @@ class TaskModel with _$TaskModel {
       endDate: endDate,
       startMinuteOfDay: startMinuteOfDay,
       endMinuteOfDay: endMinuteOfDay,
+      reminderDate: reminderDate,
+      reminderMinuteOfDay: reminderMinuteOfDay,
       repeatsDaily: repeatsDaily,
       isCompleted: isCompleted,
       subtasks: subtasks
@@ -84,6 +88,8 @@ class TaskModel with _$TaskModel {
       endDate: entity.endDate,
       startMinuteOfDay: entity.startMinuteOfDay,
       endMinuteOfDay: entity.endMinuteOfDay,
+      reminderDate: entity.reminderDate,
+      reminderMinuteOfDay: entity.reminderMinuteOfDay,
       repeatsDaily: entity.repeatsDaily,
       isCompleted: entity.isCompleted,
       subtasks: entity.subtasks

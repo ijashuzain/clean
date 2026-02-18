@@ -1,7 +1,9 @@
+import 'package:logit/core/notifications/task_reminder_scheduler.dart';
 import 'package:logit/core/utils/status/status.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/domain/usecases/delete_task_usecase/delete_task_usecase.dart';
 import 'package:logit/features/task/domain/usecases/get_emoji_preview_usecase/get_emoji_preview_usecase.dart';
+import 'package:logit/features/task/domain/usecases/get_all_tasks_usecase/get_all_tasks_usecase.dart';
 import 'package:logit/features/task/domain/usecases/get_task_by_id_usecase/get_task_by_id_usecase.dart';
 import 'package:logit/features/task/domain/usecases/get_tasks_by_date_usecase/get_tasks_by_date_usecase.dart';
 import 'package:logit/features/task/domain/usecases/save_task_usecase/save_task_usecase.dart';
@@ -27,7 +29,11 @@ class TaskTimelineProvider extends _$TaskTimelineProvider {
   @override
   TaskTimelineState build() {
     final today = _toDateOnly(DateTime.now());
-    Future.microtask(() => loadTasks(today));
+    Future.microtask(() async {
+      await ref.read(taskReminderSchedulerProvider).ensureInitialized();
+      await _syncAllTaskReminders();
+      await loadTasks(today);
+    });
     return TaskTimelineState(selectedDate: today);
   }
 
@@ -73,10 +79,14 @@ class TaskTimelineProvider extends _$TaskTimelineProvider {
 
   Future<void> saveTask(Task task) async {
     final result = await ref.read(saveTaskUseCaseProvider).call(task);
-    result.when(
-      success: (_) => loadTasks(task.scheduledAt),
-      failure: (failure) =>
-          state = state.copyWith(taskStatus: Status.failure(failure.message)),
+    await result.when(
+      success: (_) async {
+        await ref.read(taskReminderSchedulerProvider).syncForTask(task);
+        await loadTasks(task.scheduledAt);
+      },
+      failure: (failure) async {
+        state = state.copyWith(taskStatus: Status.failure(failure.message));
+      },
     );
   }
 
@@ -85,19 +95,45 @@ class TaskTimelineProvider extends _$TaskTimelineProvider {
         .read(toggleTaskCompletionUseCaseProvider)
         .call(ToggleTaskCompletionParams(taskId: taskId, subTaskId: subTaskId));
 
-    result.when(
-      success: (_) => loadTasks(state.selectedDate),
-      failure: (failure) =>
-          state = state.copyWith(taskStatus: Status.failure(failure.message)),
+    await result.when(
+      success: (_) async {
+        final updatedTaskResult = await ref
+            .read(getTaskByIdUseCaseProvider)
+            .call(taskId);
+        await updatedTaskResult.when(
+          success: (task) async {
+            if (task == null) {
+              await ref
+                  .read(taskReminderSchedulerProvider)
+                  .cancelForTaskId(taskId);
+              return;
+            }
+            await ref.read(taskReminderSchedulerProvider).syncForTask(task);
+          },
+          failure: (_) async {
+            await ref
+                .read(taskReminderSchedulerProvider)
+                .cancelForTaskId(taskId);
+          },
+        );
+        await loadTasks(state.selectedDate);
+      },
+      failure: (failure) async {
+        state = state.copyWith(taskStatus: Status.failure(failure.message));
+      },
     );
   }
 
   Future<void> deleteTask(String taskId) async {
     final result = await ref.read(deleteTaskUseCaseProvider).call(taskId);
-    result.when(
-      success: (_) => loadTasks(state.selectedDate),
-      failure: (failure) =>
-          state = state.copyWith(taskStatus: Status.failure(failure.message)),
+    await result.when(
+      success: (_) async {
+        await ref.read(taskReminderSchedulerProvider).cancelForTaskId(taskId);
+        await loadTasks(state.selectedDate);
+      },
+      failure: (failure) async {
+        state = state.copyWith(taskStatus: Status.failure(failure.message));
+      },
     );
   }
 
@@ -108,5 +144,15 @@ class TaskTimelineProvider extends _$TaskTimelineProvider {
 
   DateTime _toDateOnly(DateTime date) {
     return DateTime(date.year, date.month, date.day);
+  }
+
+  Future<void> _syncAllTaskReminders() async {
+    final result = await ref.read(getAllTasksUseCaseProvider).call();
+    await result.when(
+      success: (tasks) async {
+        await ref.read(taskReminderSchedulerProvider).syncForTasks(tasks);
+      },
+      failure: (_) async {},
+    );
   }
 }

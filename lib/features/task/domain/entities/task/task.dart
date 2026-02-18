@@ -27,6 +27,8 @@ class Task with _$Task {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     @Default(false) bool repeatsDaily,
     @Default(false) bool isCompleted,
     @Default(<SubTask>[]) List<SubTask> subtasks,
