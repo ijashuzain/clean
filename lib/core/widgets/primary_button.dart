@@ -6,6 +6,7 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final Color? backgroundColor;
   final Color? foregroundColor;
+  final double height;
 
   const PrimaryButton({
     super.key,
@@ -14,6 +15,7 @@ class PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.backgroundColor,
     this.foregroundColor,
+    this.height = 56,
   });
 
   @override
@@ -22,7 +24,7 @@ class PrimaryButton extends StatelessWidget {
 
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: height,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(

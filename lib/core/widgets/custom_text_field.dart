@@ -13,6 +13,7 @@ class CustomTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<String>? onChanged;
   final List<TextInputFormatter>? inputFormatters;
+  final bool compact;
 
   const CustomTextField({
     super.key,
@@ -27,6 +28,7 @@ class CustomTextField extends StatelessWidget {
     this.onSubmitted,
     this.onChanged,
     this.inputFormatters,
+    this.compact = false,
   });
 
   @override
@@ -48,12 +50,12 @@ class CustomTextField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: compact ? 13 : 14,
             fontWeight: FontWeight.w500,
             color: colors.onSurface.withValues(alpha: 0.8),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: compact ? 6 : 8),
         TextField(
           controller: controller,
           obscureText: isPassword,
@@ -67,6 +69,13 @@ class CustomTextField extends StatelessWidget {
             hintText: hint,
             hintStyle: TextStyle(color: hintColor),
             suffixIcon: suffixIcon,
+            isDense: compact,
+            contentPadding: compact
+                ? EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: maxLines > 1 ? 12 : 11,
+                  )
+                : null,
           ),
         ),
       ],

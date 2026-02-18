@@ -5,4 +5,5 @@ class RoutePaths {
   static const signup = '/signup';
   static const tasks = '/tasks';
   static const taskManage = '/tasks/manage';
+  static const settings = '/settings';
 }

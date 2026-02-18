@@ -270,6 +270,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 52,
         leading: IconButton(
           onPressed: context.pop,
           icon: const Icon(Icons.close_rounded),
@@ -323,195 +324,266 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       ),
       body: _loadingTask
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomTextField(
-                      label: 'Task',
-                      hint: 'Enter your task',
-                      controller: _titleController,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 14),
-                    CustomTextField(
-                      label: 'Topic (optional)',
-                      hint: 'Work, Health, Personal...',
-                      controller: _topicController,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 14),
-                    CustomTextField(
-                      label: 'Emoji (optional)',
-                      hint: 'Type from emoji keyboard',
-                      controller: _emojiController,
-                      textInputAction: TextInputAction.next,
-                      inputFormatters: [_emojiFormatter],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Start & End Date',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 26),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sectionTitle('Emoji (optional)'),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _emojiPickerField(),
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTextField(
+                    compact: true,
+                    label: 'Task',
+                    hint: 'Enter your task',
+                    controller: _titleController,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    compact: true,
+                    label: 'Topic (optional)',
+                    hint: 'Work, Health, Personal...',
+                    controller: _topicController,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  _sectionTitle('Start & End Date'),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _compactPickerButton(
+                          onPressed: _pickDate,
+                          icon: Icons.calendar_month_rounded,
+                          label: startDateLabel,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _pickDate,
-                            icon: const Icon(Icons.calendar_month_rounded),
-                            label: Text(startDateLabel),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: _compactPickerButton(
+                          onPressed: _pickEndDate,
+                          icon: Icons.event_repeat_rounded,
+                          label: endDateLabel,
+                        ),
+                      ),
+                      _buildClearActionSlot(
+                        visible: _endDate != null,
+                        tooltip: 'Clear end date',
+                        onPressed: () => setState(() => _endDate = null),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _sectionTitle('Start & End Time (optional)'),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _compactPickerButton(
+                          onPressed: () => _pickTime(isStart: true),
+                          icon: Icons.play_circle_outline_rounded,
+                          label: _formatMinuteLabel(
+                            _startMinuteOfDay,
+                            fallback: 'Start',
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: _compactPickerButton(
+                          onPressed: () => _pickTime(isStart: false),
+                          icon: Icons.stop_circle_outlined,
+                          label: _formatMinuteLabel(
+                            _endMinuteOfDay,
+                            fallback: 'End',
+                          ),
+                        ),
+                      ),
+                      _buildClearActionSlot(
+                        visible:
+                            _startMinuteOfDay != null ||
+                            _endMinuteOfDay != null,
+                        tooltip: 'Clear time',
+                        onPressed: () => setState(() {
+                          _startMinuteOfDay = null;
+                          _endMinuteOfDay = null;
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF2F333D)
+                            : const Color(0xFFE3E0D5),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.repeat_rounded, size: 21),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _pickEndDate,
-                            icon: const Icon(Icons.event_repeat_rounded),
-                            label: Text(endDateLabel),
-                          ),
-                        ),
-                        if (_endDate != null)
-                          IconButton(
-                            tooltip: 'Clear end date',
-                            onPressed: () => setState(() => _endDate = null),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Start & End Time (optional)',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _pickTime(isStart: true),
-                            icon: const Icon(Icons.play_circle_outline_rounded),
-                            label: Text(
-                              _formatMinuteLabel(
-                                _startMinuteOfDay,
-                                fallback: 'Start',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Repeat daily',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
                               ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _pickTime(isStart: false),
-                            icon: const Icon(Icons.stop_circle_outlined),
-                            label: Text(
-                              _formatMinuteLabel(
-                                _endMinuteOfDay,
-                                fallback: 'End',
+                              const SizedBox(height: 1),
+                              Text(
+                                _endDate == null
+                                    ? 'Show this task every day until deleted'
+                                    : 'Show this task daily until end date',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
                               ),
-                            ),
+                            ],
                           ),
                         ),
-                        if (_startMinuteOfDay != null ||
-                            _endMinuteOfDay != null)
-                          IconButton(
-                            onPressed: () => setState(() {
-                              _startMinuteOfDay = null;
-                              _endMinuteOfDay = null;
-                            }),
-                            icon: const Icon(Icons.close_rounded),
-                            tooltip: 'Clear time',
+                        Transform.scale(
+                          scale: 0.88,
+                          child: Switch.adaptive(
+                            value: _repeatsDaily || _endDate != null,
+                            onChanged: (value) =>
+                                setState(() => _repeatsDaily = value),
                           ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    SwitchListTile.adaptive(
-                      value: _repeatsDaily || _endDate != null,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Repeat daily'),
-                      subtitle: Text(
-                        _endDate == null
-                            ? 'Show this task every day until deleted'
-                            : 'Show this task daily until end date',
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTextField(
+                    compact: true,
+                    label: 'Activity note',
+                    hint: 'Add useful context',
+                    maxLines: 5,
+                    controller: _noteController,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _sectionTitle('Subtasks'),
+                      const Spacer(),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: _addSubTaskField,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded, size: 19),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add subtask',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      secondary: const Icon(Icons.repeat_rounded),
-                      onChanged: (value) =>
-                          setState(() => _repeatsDaily = value),
-                    ),
-                    const SizedBox(height: 8),
-                    CustomTextField(
-                      label: 'Activity note',
-                      hint: 'Add useful context',
-                      maxLines: 4,
-                      controller: _noteController,
-                      textInputAction: TextInputAction.newline,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Subtasks',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        TextButton.icon(
-                          onPressed: _addSubTaskField,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Add subtask'),
-                        ),
-                      ],
-                    ),
-                    ..._subTaskDrafts.asMap().entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: entry.value.controller,
-                                decoration: InputDecoration(
-                                  hintText: 'Subtask ${entry.key + 1}',
-                                  prefixIcon: const Icon(
-                                    Icons.subdirectory_arrow_right_rounded,
-                                  ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ..._subTaskDrafts.asMap().entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: entry.value.controller,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.copyWith(fontSize: 16),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 11,
+                                ),
+                                hintText: 'Subtask ${entry.key + 1}',
+                                prefixIcon: const Icon(
+                                  Icons.subdirectory_arrow_right_rounded,
+                                  size: 21,
+                                ),
+                                prefixIconConstraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
                                 ),
                               ),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                if (_subTaskDrafts.length == 1) {
-                                  _subTaskDrafts.first.controller.clear();
+                          ),
+                          SizedBox(
+                            width: 32,
+                            height: 44,
+                            child: Center(
+                              child: IconButton(
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 24,
+                                  height: 24,
+                                ),
+                                onPressed: () {
+                                  if (_subTaskDrafts.length == 1) {
+                                    _subTaskDrafts.first.controller.clear();
+                                    setState(() {});
+                                    return;
+                                  }
+                                  final draft = _subTaskDrafts.removeAt(
+                                    entry.key,
+                                  );
+                                  draft.controller.dispose();
                                   setState(() {});
-                                  return;
-                                }
-                                final draft = _subTaskDrafts.removeAt(
-                                  entry.key,
-                                );
-                                draft.controller.dispose();
-                                setState(() {});
-                              },
-                              icon: const Icon(Icons.delete_outline_rounded),
+                                },
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 20,
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    PrimaryButton(
-                      text: widget.taskId == null
-                          ? 'Create Task'
-                          : 'Save Changes',
-                      onPressed: _save,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryButton(
+                    height: 52,
+                    text: widget.taskId == null
+                        ? 'Create Task'
+                        : 'Save Changes',
+                    onPressed: _save,
+                  ),
+                ],
               ),
             ),
     );
@@ -523,6 +595,117 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
     final time = TimeOfDay(hour: minuteOfDay ~/ 60, minute: minuteOfDay % 60);
     return time.format(context);
+  }
+
+  Widget _compactPickerButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(44),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 11.6,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClearActionSlot({
+    required bool visible,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 30,
+      height: 44,
+      child: visible
+          ? Center(
+              child: IconButton(
+                tooltip: tooltip,
+                onPressed: onPressed,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 22,
+                  height: 22,
+                ),
+                icon: const Icon(Icons.close_rounded, size: 19),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _emojiPickerField() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2F333D) : const Color(0xFFE3E0D5),
+        ),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 34,
+          child: TextField(
+            controller: _emojiController,
+            textInputAction: TextInputAction.next,
+            inputFormatters: [_emojiFormatter],
+            maxLines: 1,
+            minLines: 1,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, height: 1.0),
+            decoration: InputDecoration(
+              hintText: '😀',
+              hintStyle: TextStyle(
+                fontSize: 21,
+                color: Theme.of(context).hintColor.withValues(alpha: 0.45),
+              ),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    );
   }
 }
 

@@ -1,3 +1,4 @@
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -8,26 +9,19 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.darkText
-        : AppColors.brandText;
+    final textColor = Theme.of(context).brightness == Brightness.dark ? AppColors.darkText : AppColors.brandText;
 
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w800,
-          color: textColor,
-          letterSpacing: -0.5,
-        ),
-        children: const [
-          TextSpan(text: 'L'),
-          TextSpan(text: 'o'),
-          TextSpan(text: 'g'),
-          TextSpan(text: 'I'),
-          TextSpan(text: 't'),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        return Center(
+          child: SvgPicture.asset(
+            'assets/icons/logo.svg',
+            width: maxWidth * 0.15,
+            colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+          ),
+        );
+      },
     );
   }
 }
