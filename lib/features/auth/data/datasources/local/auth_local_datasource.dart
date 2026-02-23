@@ -115,6 +115,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   @override
   Future<void> logout() async {
     await _box.delete(HiveAuthKeys.currentUserId);
+    await _box.delete(HiveAuthKeys.pinHash);
   }
 
   List<UserModel> _readUsers() {

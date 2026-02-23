@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:logit/core/failure/failure.dart';
 import 'package:logit/core/utils/result/result.dart';
 import 'package:logit/features/task/data/datasources/local/task_local_datasource.dart';
@@ -18,8 +20,17 @@ TaskRepository taskRepository(Ref ref) {
   );
 }
 
+final taskSyncStatusProvider = StreamProvider.autoDispose<bool>((ref) {
+  return TaskRepositoryImpl.syncStatusStream;
+});
+
 class TaskRepositoryImpl implements TaskRepository {
   static const String _dailyOccurrenceSeparator = '__occ__';
+  static bool _isSyncInProgress = false;
+  static bool _syncRequested = false;
+  static bool _lastSyncStatus = false;
+  static final StreamController<bool> _syncStatusController =
+      StreamController<bool>.broadcast();
 
   final TaskLocalDataSource localDataSource;
   final TaskRemoteDataSource remoteDataSource;
@@ -29,9 +40,32 @@ class TaskRepositoryImpl implements TaskRepository {
     required this.remoteDataSource,
   });
 
+  static Stream<bool> get syncStatusStream {
+    return Stream<bool>.multi((controller) {
+      controller.add(_lastSyncStatus);
+      final subscription = _syncStatusController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  static void _emitSyncStatus(bool isSyncing) {
+    if (_lastSyncStatus == isSyncing) {
+      return;
+    }
+    _lastSyncStatus = isSyncing;
+    if (_syncStatusController.isClosed) {
+      return;
+    }
+    _syncStatusController.add(isSyncing);
+  }
+
   @override
   Future<Result<List<Task>>> getAllTasks() async {
     try {
+      _triggerBackgroundSync();
       final tasks =
           (await localDataSource.getTasks())
               .map((task) => task.toEntity())
@@ -46,6 +80,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<List<Task>>> getTasksByDate(DateTime date) async {
     try {
+      _triggerBackgroundSync();
       final targetDate = _toDateOnly(date);
       final tasksForDate = await _resolveTasksForDate(
         targetDate,
@@ -62,7 +97,10 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> upsertTask(Task task) async {
     try {
-      await localDataSource.upsertTask(TaskModel.fromEntity(task));
+      final model = TaskModel.fromEntity(task);
+      await localDataSource.upsertTask(model);
+      await localDataSource.enqueueTaskUpsertForSync(model);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -75,6 +113,7 @@ class TaskRepositoryImpl implements TaskRepository {
     required DateTime to,
   }) async {
     try {
+      _triggerBackgroundSync();
       final allTasks = await localDataSource.getTasks();
       final start = DateTime(from.year, from.month, from.day);
       final end = DateTime(to.year, to.month, to.day);
@@ -141,7 +180,10 @@ class TaskRepositoryImpl implements TaskRepository {
         );
       }
       final updated = _toggleEntity(entity, subTaskId: subTaskId);
-      await localDataSource.upsertTask(TaskModel.fromEntity(updated));
+      final updatedModel = TaskModel.fromEntity(updated);
+      await localDataSource.upsertTask(updatedModel);
+      await localDataSource.enqueueTaskUpsertForSync(updatedModel);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -168,7 +210,9 @@ class TaskRepositoryImpl implements TaskRepository {
         }
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
+          await localDataSource.enqueueTaskDeleteForSync(id);
         }
+        _triggerBackgroundSync();
         return const Result.success(null);
       }
 
@@ -190,11 +234,15 @@ class TaskRepositoryImpl implements TaskRepository {
             .toSet();
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
+          await localDataSource.enqueueTaskDeleteForSync(id);
         }
+        _triggerBackgroundSync();
         return const Result.success(null);
       }
 
       await localDataSource.deleteTask(taskId);
+      await localDataSource.enqueueTaskDeleteForSync(taskId);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -204,11 +252,141 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<Task?>> getTaskById(String taskId) async {
     try {
+      _triggerBackgroundSync();
       final task = await localDataSource.getTaskById(taskId);
       return Result.success(task?.toEntity());
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
     }
+  }
+
+  void _triggerBackgroundSync() {
+    if (!remoteDataSource.canSync || remoteDataSource.currentUserId == null) {
+      return;
+    }
+    _syncRequested = true;
+    if (_isSyncInProgress) {
+      return;
+    }
+
+    Future.microtask(() async {
+      if (_isSyncInProgress) {
+        return;
+      }
+      _isSyncInProgress = true;
+      _emitSyncStatus(true);
+      try {
+        while (_syncRequested) {
+          _syncRequested = false;
+          await _syncRemoteAndLocalInBackground();
+        }
+      } finally {
+        _isSyncInProgress = false;
+        _emitSyncStatus(false);
+      }
+    });
+  }
+
+  Future<void> _syncRemoteAndLocalInBackground() async {
+    final remoteUserId = remoteDataSource.currentUserId;
+    if (remoteUserId == null || !remoteDataSource.canSync) {
+      return;
+    }
+
+    final previousSyncedUserId = await localDataSource.getSyncedUserId();
+    if (previousSyncedUserId != null && previousSyncedUserId != remoteUserId) {
+      await localDataSource.replaceAllTasks(const <TaskModel>[]);
+      await localDataSource.clearPendingSyncOperations();
+    }
+    if (previousSyncedUserId != remoteUserId) {
+      await localDataSource.setSyncedUserId(remoteUserId);
+    }
+
+    final queueDrained = await _flushPendingSyncOperations();
+    if (!queueDrained) {
+      return;
+    }
+
+    final localTasks = await localDataSource.getTasks();
+    final remoteTasks = await remoteDataSource.fetchTasks();
+    final localById = <String, TaskModel>{
+      for (final task in localTasks) task.id: task,
+    };
+    final mergedTasks =
+        remoteTasks
+            .map((remoteTask) {
+              final localTask = localById[remoteTask.id];
+              return _mergeRemoteWithLocalOnlyFields(
+                remoteTask: remoteTask,
+                localTask: localTask,
+              );
+            })
+            .toList(growable: false)
+          ..sort(
+            (first, second) => first.scheduledAt.compareTo(second.scheduledAt),
+          );
+    await localDataSource.replaceAllTasks(mergedTasks);
+  }
+
+  Future<bool> _flushPendingSyncOperations() async {
+    while (true) {
+      final operations = await localDataSource.getPendingSyncOperations();
+      if (operations.isEmpty) {
+        return true;
+      }
+
+      final operation = operations.first;
+      final operationId = (operation['id'] ?? '').toString();
+      final operationType = (operation['type'] ?? '').toString();
+      final taskId = (operation['taskId'] ?? '').toString();
+
+      if (operationId.isEmpty) {
+        await localDataSource.clearPendingSyncOperations();
+        return false;
+      }
+
+      try {
+        if (operationType == 'upsert') {
+          final taskMap = operation['task'];
+          if (taskMap is! Map) {
+            await localDataSource.removePendingSyncOperation(operationId);
+            continue;
+          }
+          final task = TaskModel.fromJson(Map<String, dynamic>.from(taskMap));
+          await remoteDataSource.upsertTask(task);
+          await localDataSource.removePendingSyncOperation(operationId);
+          continue;
+        }
+
+        if (operationType == 'delete') {
+          if (taskId.isEmpty) {
+            await localDataSource.removePendingSyncOperation(operationId);
+            continue;
+          }
+          await remoteDataSource.deleteTask(taskId);
+          await localDataSource.removePendingSyncOperation(operationId);
+          continue;
+        }
+
+        await localDataSource.removePendingSyncOperation(operationId);
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  TaskModel _mergeRemoteWithLocalOnlyFields({
+    required TaskModel remoteTask,
+    required TaskModel? localTask,
+  }) {
+    if (localTask == null) {
+      return remoteTask;
+    }
+    return remoteTask.copyWith(
+      reminders: localTask.reminders,
+      reminderDate: localTask.reminderDate,
+      reminderMinuteOfDay: localTask.reminderMinuteOfDay,
+    );
   }
 
   Task _toggleEntity(Task task, {String? subTaskId}) {
@@ -353,7 +531,9 @@ class TaskRepositoryImpl implements TaskRepository {
     if (materializeDailyOccurrences && pendingUpserts.isNotEmpty) {
       for (final task in pendingUpserts) {
         await localDataSource.upsertTask(task);
+        await localDataSource.enqueueTaskUpsertForSync(task);
       }
+      _triggerBackgroundSync();
     }
 
     tasksForDate.sort(

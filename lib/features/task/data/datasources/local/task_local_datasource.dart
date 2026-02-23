@@ -15,8 +15,16 @@ TaskLocalDataSource taskLocalDataSource(Ref ref) {
 abstract class TaskLocalDataSource {
   Future<List<TaskModel>> getTasks();
   Future<void> upsertTask(TaskModel task);
+  Future<void> replaceAllTasks(List<TaskModel> tasks);
   Future<void> deleteTask(String taskId);
   Future<TaskModel?> getTaskById(String taskId);
+  Future<String?> getSyncedUserId();
+  Future<void> setSyncedUserId(String? userId);
+  Future<void> enqueueTaskUpsertForSync(TaskModel task);
+  Future<void> enqueueTaskDeleteForSync(String taskId);
+  Future<List<Map<String, dynamic>>> getPendingSyncOperations();
+  Future<void> removePendingSyncOperation(String operationId);
+  Future<void> clearPendingSyncOperations();
 }
 
 class TaskLocalDataSourceImpl implements TaskLocalDataSource {
@@ -64,6 +72,14 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
   }
 
   @override
+  Future<void> replaceAllTasks(List<TaskModel> tasks) async {
+    await _box.put(
+      HiveTaskKeys.tasks,
+      tasks.map(_toStorageMap).toList(growable: false),
+    );
+  }
+
+  @override
   Future<void> deleteTask(String taskId) async {
     final allTasks = await getTasks();
     final updated = allTasks
@@ -84,6 +100,84 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
       }
     }
     return null;
+  }
+
+  @override
+  Future<String?> getSyncedUserId() async {
+    final value = _box.get(HiveTaskKeys.syncedUserId) as String?;
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return value;
+  }
+
+  @override
+  Future<void> setSyncedUserId(String? userId) async {
+    final normalized = userId?.trim() ?? '';
+    if (normalized.isEmpty) {
+      await _box.delete(HiveTaskKeys.syncedUserId);
+      return;
+    }
+    await _box.put(HiveTaskKeys.syncedUserId, normalized);
+  }
+
+  @override
+  Future<void> enqueueTaskUpsertForSync(TaskModel task) async {
+    final operations = await getPendingSyncOperations();
+    operations.removeWhere((item) => item['taskId'] == task.id);
+    operations.add({
+      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'type': 'upsert',
+      'taskId': task.id,
+      'task': _toStorageMap(task),
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+    await _box.put(HiveTaskKeys.pendingSyncOperations, operations);
+  }
+
+  @override
+  Future<void> enqueueTaskDeleteForSync(String taskId) async {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return;
+    }
+    final operations = await getPendingSyncOperations();
+    operations.removeWhere((item) => item['taskId'] == normalizedTaskId);
+    operations.add({
+      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'type': 'delete',
+      'taskId': normalizedTaskId,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+    await _box.put(HiveTaskKeys.pendingSyncOperations, operations);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingSyncOperations() async {
+    final raw =
+        (_box.get(HiveTaskKeys.pendingSyncOperations, defaultValue: <dynamic>[])
+            as List<dynamic>);
+
+    return raw
+        .whereType<Map>()
+        .map((item) => _normalizeMap(Map<dynamic, dynamic>.from(item)))
+        .toList(growable: true);
+  }
+
+  @override
+  Future<void> removePendingSyncOperation(String operationId) async {
+    final normalizedId = operationId.trim();
+    if (normalizedId.isEmpty) {
+      return;
+    }
+    final operations = await getPendingSyncOperations();
+    operations.removeWhere((item) => item['id'] == normalizedId);
+    await _box.put(HiveTaskKeys.pendingSyncOperations, operations);
+  }
+
+  @override
+  Future<void> clearPendingSyncOperations() async {
+    await _box.delete(HiveTaskKeys.pendingSyncOperations);
   }
 
   Map<String, dynamic> _toStorageMap(TaskModel model) {

@@ -12,6 +12,8 @@ class HiveAuthKeys {
 
 class HiveTaskKeys {
   static const tasks = 'tasks';
+  static const syncedUserId = 'synced_user_id';
+  static const pendingSyncOperations = 'pending_sync_operations';
 }
 
 class HiveSettingsKeys {

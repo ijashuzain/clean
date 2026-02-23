@@ -79,6 +79,45 @@ class MockAuthRepository extends _i1.Mock implements _i2.AuthRepository {
           as _i3.Future<_i4.Result<_i5.AppUser?>>);
 
   @override
+  _i3.Future<_i4.Result<bool>> hasPin() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasPin, []),
+            returnValue: _i3.Future<_i4.Result<bool>>.value(
+              _i6.dummyValue<_i4.Result<bool>>(
+                this,
+                Invocation.method(#hasPin, []),
+              ),
+            ),
+          )
+          as _i3.Future<_i4.Result<bool>>);
+
+  @override
+  _i3.Future<_i4.Result<void>> setPin(String? pin) =>
+      (super.noSuchMethod(
+            Invocation.method(#setPin, [pin]),
+            returnValue: _i3.Future<_i4.Result<void>>.value(
+              _i6.dummyValue<_i4.Result<void>>(
+                this,
+                Invocation.method(#setPin, [pin]),
+              ),
+            ),
+          )
+          as _i3.Future<_i4.Result<void>>);
+
+  @override
+  _i3.Future<_i4.Result<bool>> verifyPin(String? pin) =>
+      (super.noSuchMethod(
+            Invocation.method(#verifyPin, [pin]),
+            returnValue: _i3.Future<_i4.Result<bool>>.value(
+              _i6.dummyValue<_i4.Result<bool>>(
+                this,
+                Invocation.method(#verifyPin, [pin]),
+              ),
+            ),
+          )
+          as _i3.Future<_i4.Result<bool>>);
+
+  @override
   _i3.Future<_i4.Result<void>> logout() =>
       (super.noSuchMethod(
             Invocation.method(#logout, []),
