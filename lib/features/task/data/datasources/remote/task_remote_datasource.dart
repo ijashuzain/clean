@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:logit/core/supabase/supabase_initializer.dart';
 import 'package:logit/features/task/data/models/task_model/task_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,7 +117,7 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
     required TaskModel task,
     required String userId,
   }) {
-    final json = task.toJson();
+    final json = _toSerializableMap(task);
     return {
       'id': task.id,
       'user_id': userId,
@@ -136,6 +138,12 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
       'created_at': task.createdAt.toIso8601String(),
       'updated_at': task.updatedAt.toIso8601String(),
     };
+  }
+
+  Map<String, dynamic> _toSerializableMap(TaskModel task) {
+    return Map<String, dynamic>.from(
+      jsonDecode(jsonEncode(task.toJson())) as Map<String, dynamic>,
+    );
   }
 
   List<Map<String, dynamic>> _normalizeModelList(dynamic value) {

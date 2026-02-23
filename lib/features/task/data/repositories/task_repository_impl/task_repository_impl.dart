@@ -261,7 +261,8 @@ class TaskRepositoryImpl implements TaskRepository {
         continue;
       }
 
-      if (localTask.updatedAt.isAfter(remoteTask.updatedAt)) {
+      if (localTask.updatedAt.isAfter(remoteTask.updatedAt) ||
+          localTask.updatedAt.isAtSameMomentAs(remoteTask.updatedAt)) {
         mergedById[localTask.id] = localTask;
         await remoteDataSource.upsertTask(localTask);
         continue;
