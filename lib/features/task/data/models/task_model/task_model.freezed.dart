@@ -212,6 +212,227 @@ abstract class _SubTaskModel extends SubTaskModel {
       throw _privateConstructorUsedError;
 }
 
+TaskReminderModel _$TaskReminderModelFromJson(Map<String, dynamic> json) {
+  return _TaskReminderModel.fromJson(json);
+}
+
+/// @nodoc
+mixin _$TaskReminderModel {
+  String get id => throw _privateConstructorUsedError;
+  DateTime get date => throw _privateConstructorUsedError;
+  int get minuteOfDay => throw _privateConstructorUsedError;
+  bool get repeatsDaily => throw _privateConstructorUsedError;
+
+  /// Serializes this TaskReminderModel to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of TaskReminderModel
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $TaskReminderModelCopyWith<TaskReminderModel> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $TaskReminderModelCopyWith<$Res> {
+  factory $TaskReminderModelCopyWith(
+    TaskReminderModel value,
+    $Res Function(TaskReminderModel) then,
+  ) = _$TaskReminderModelCopyWithImpl<$Res, TaskReminderModel>;
+  @useResult
+  $Res call({String id, DateTime date, int minuteOfDay, bool repeatsDaily});
+}
+
+/// @nodoc
+class _$TaskReminderModelCopyWithImpl<$Res, $Val extends TaskReminderModel>
+    implements $TaskReminderModelCopyWith<$Res> {
+  _$TaskReminderModelCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of TaskReminderModel
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? date = null,
+    Object? minuteOfDay = null,
+    Object? repeatsDaily = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            id: null == id
+                ? _value.id
+                : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            date: null == date
+                ? _value.date
+                : date // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            minuteOfDay: null == minuteOfDay
+                ? _value.minuteOfDay
+                : minuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int,
+            repeatsDaily: null == repeatsDaily
+                ? _value.repeatsDaily
+                : repeatsDaily // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$TaskReminderModelImplCopyWith<$Res>
+    implements $TaskReminderModelCopyWith<$Res> {
+  factory _$$TaskReminderModelImplCopyWith(
+    _$TaskReminderModelImpl value,
+    $Res Function(_$TaskReminderModelImpl) then,
+  ) = __$$TaskReminderModelImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String id, DateTime date, int minuteOfDay, bool repeatsDaily});
+}
+
+/// @nodoc
+class __$$TaskReminderModelImplCopyWithImpl<$Res>
+    extends _$TaskReminderModelCopyWithImpl<$Res, _$TaskReminderModelImpl>
+    implements _$$TaskReminderModelImplCopyWith<$Res> {
+  __$$TaskReminderModelImplCopyWithImpl(
+    _$TaskReminderModelImpl _value,
+    $Res Function(_$TaskReminderModelImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of TaskReminderModel
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? date = null,
+    Object? minuteOfDay = null,
+    Object? repeatsDaily = null,
+  }) {
+    return _then(
+      _$TaskReminderModelImpl(
+        id: null == id
+            ? _value.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        date: null == date
+            ? _value.date
+            : date // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        minuteOfDay: null == minuteOfDay
+            ? _value.minuteOfDay
+            : minuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int,
+        repeatsDaily: null == repeatsDaily
+            ? _value.repeatsDaily
+            : repeatsDaily // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$TaskReminderModelImpl extends _TaskReminderModel {
+  const _$TaskReminderModelImpl({
+    required this.id,
+    required this.date,
+    required this.minuteOfDay,
+    this.repeatsDaily = false,
+  }) : super._();
+
+  factory _$TaskReminderModelImpl.fromJson(Map<String, dynamic> json) =>
+      _$$TaskReminderModelImplFromJson(json);
+
+  @override
+  final String id;
+  @override
+  final DateTime date;
+  @override
+  final int minuteOfDay;
+  @override
+  @JsonKey()
+  final bool repeatsDaily;
+
+  @override
+  String toString() {
+    return 'TaskReminderModel(id: $id, date: $date, minuteOfDay: $minuteOfDay, repeatsDaily: $repeatsDaily)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$TaskReminderModelImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.date, date) || other.date == date) &&
+            (identical(other.minuteOfDay, minuteOfDay) ||
+                other.minuteOfDay == minuteOfDay) &&
+            (identical(other.repeatsDaily, repeatsDaily) ||
+                other.repeatsDaily == repeatsDaily));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, id, date, minuteOfDay, repeatsDaily);
+
+  /// Create a copy of TaskReminderModel
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$TaskReminderModelImplCopyWith<_$TaskReminderModelImpl> get copyWith =>
+      __$$TaskReminderModelImplCopyWithImpl<_$TaskReminderModelImpl>(
+        this,
+        _$identity,
+      );
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$TaskReminderModelImplToJson(this);
+  }
+}
+
+abstract class _TaskReminderModel extends TaskReminderModel {
+  const factory _TaskReminderModel({
+    required final String id,
+    required final DateTime date,
+    required final int minuteOfDay,
+    final bool repeatsDaily,
+  }) = _$TaskReminderModelImpl;
+  const _TaskReminderModel._() : super._();
+
+  factory _TaskReminderModel.fromJson(Map<String, dynamic> json) =
+      _$TaskReminderModelImpl.fromJson;
+
+  @override
+  String get id;
+  @override
+  DateTime get date;
+  @override
+  int get minuteOfDay;
+  @override
+  bool get repeatsDaily;
+
+  /// Create a copy of TaskReminderModel
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$TaskReminderModelImplCopyWith<_$TaskReminderModelImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 TaskModel _$TaskModelFromJson(Map<String, dynamic> json) {
   return _TaskModel.fromJson(json);
 }
@@ -227,6 +448,9 @@ mixin _$TaskModel {
   DateTime? get endDate => throw _privateConstructorUsedError;
   int? get startMinuteOfDay => throw _privateConstructorUsedError;
   int? get endMinuteOfDay => throw _privateConstructorUsedError;
+  List<TaskReminderModel> get reminders => throw _privateConstructorUsedError;
+  DateTime? get reminderDate => throw _privateConstructorUsedError;
+  int? get reminderMinuteOfDay => throw _privateConstructorUsedError;
   bool get repeatsDaily => throw _privateConstructorUsedError;
   bool get isCompleted => throw _privateConstructorUsedError;
   List<SubTaskModel> get subtasks => throw _privateConstructorUsedError;
@@ -258,6 +482,9 @@ abstract class $TaskModelCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    List<TaskReminderModel> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTaskModel> subtasks,
@@ -290,6 +517,9 @@ class _$TaskModelCopyWithImpl<$Res, $Val extends TaskModel>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminders = null,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -333,6 +563,18 @@ class _$TaskModelCopyWithImpl<$Res, $Val extends TaskModel>
             endMinuteOfDay: freezed == endMinuteOfDay
                 ? _value.endMinuteOfDay
                 : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            reminders: null == reminders
+                ? _value.reminders
+                : reminders // ignore: cast_nullable_to_non_nullable
+                      as List<TaskReminderModel>,
+            reminderDate: freezed == reminderDate
+                ? _value.reminderDate
+                : reminderDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            reminderMinuteOfDay: freezed == reminderMinuteOfDay
+                ? _value.reminderMinuteOfDay
+                : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
                       as int?,
             repeatsDaily: null == repeatsDaily
                 ? _value.repeatsDaily
@@ -379,6 +621,9 @@ abstract class _$$TaskModelImplCopyWith<$Res>
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    List<TaskReminderModel> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTaskModel> subtasks,
@@ -410,6 +655,9 @@ class __$$TaskModelImplCopyWithImpl<$Res>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminders = null,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -454,6 +702,18 @@ class __$$TaskModelImplCopyWithImpl<$Res>
             ? _value.endMinuteOfDay
             : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
                   as int?,
+        reminders: null == reminders
+            ? _value._reminders
+            : reminders // ignore: cast_nullable_to_non_nullable
+                  as List<TaskReminderModel>,
+        reminderDate: freezed == reminderDate
+            ? _value.reminderDate
+            : reminderDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        reminderMinuteOfDay: freezed == reminderMinuteOfDay
+            ? _value.reminderMinuteOfDay
+            : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int?,
         repeatsDaily: null == repeatsDaily
             ? _value.repeatsDaily
             : repeatsDaily // ignore: cast_nullable_to_non_nullable
@@ -492,12 +752,16 @@ class _$TaskModelImpl extends _TaskModel {
     this.endDate,
     this.startMinuteOfDay,
     this.endMinuteOfDay,
+    final List<TaskReminderModel> reminders = const <TaskReminderModel>[],
+    this.reminderDate,
+    this.reminderMinuteOfDay,
     this.repeatsDaily = false,
     required this.isCompleted,
     required final List<SubTaskModel> subtasks,
     required this.createdAt,
     required this.updatedAt,
-  }) : _subtasks = subtasks,
+  }) : _reminders = reminders,
+       _subtasks = subtasks,
        super._();
 
   factory _$TaskModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -521,6 +785,19 @@ class _$TaskModelImpl extends _TaskModel {
   final int? startMinuteOfDay;
   @override
   final int? endMinuteOfDay;
+  final List<TaskReminderModel> _reminders;
+  @override
+  @JsonKey()
+  List<TaskReminderModel> get reminders {
+    if (_reminders is EqualUnmodifiableListView) return _reminders;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_reminders);
+  }
+
+  @override
+  final DateTime? reminderDate;
+  @override
+  final int? reminderMinuteOfDay;
   @override
   @JsonKey()
   final bool repeatsDaily;
@@ -541,7 +818,7 @@ class _$TaskModelImpl extends _TaskModel {
 
   @override
   String toString() {
-    return 'TaskModel(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'TaskModel(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, reminders: $reminders, reminderDate: $reminderDate, reminderMinuteOfDay: $reminderMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -561,6 +838,14 @@ class _$TaskModelImpl extends _TaskModel {
                 other.startMinuteOfDay == startMinuteOfDay) &&
             (identical(other.endMinuteOfDay, endMinuteOfDay) ||
                 other.endMinuteOfDay == endMinuteOfDay) &&
+            const DeepCollectionEquality().equals(
+              other._reminders,
+              _reminders,
+            ) &&
+            (identical(other.reminderDate, reminderDate) ||
+                other.reminderDate == reminderDate) &&
+            (identical(other.reminderMinuteOfDay, reminderMinuteOfDay) ||
+                other.reminderMinuteOfDay == reminderMinuteOfDay) &&
             (identical(other.repeatsDaily, repeatsDaily) ||
                 other.repeatsDaily == repeatsDaily) &&
             (identical(other.isCompleted, isCompleted) ||
@@ -585,6 +870,9 @@ class _$TaskModelImpl extends _TaskModel {
     endDate,
     startMinuteOfDay,
     endMinuteOfDay,
+    const DeepCollectionEquality().hash(_reminders),
+    reminderDate,
+    reminderMinuteOfDay,
     repeatsDaily,
     isCompleted,
     const DeepCollectionEquality().hash(_subtasks),
@@ -617,6 +905,9 @@ abstract class _TaskModel extends TaskModel {
     final DateTime? endDate,
     final int? startMinuteOfDay,
     final int? endMinuteOfDay,
+    final List<TaskReminderModel> reminders,
+    final DateTime? reminderDate,
+    final int? reminderMinuteOfDay,
     final bool repeatsDaily,
     required final bool isCompleted,
     required final List<SubTaskModel> subtasks,
@@ -646,6 +937,12 @@ abstract class _TaskModel extends TaskModel {
   int? get startMinuteOfDay;
   @override
   int? get endMinuteOfDay;
+  @override
+  List<TaskReminderModel> get reminders;
+  @override
+  DateTime? get reminderDate;
+  @override
+  int? get reminderMinuteOfDay;
   @override
   bool get repeatsDaily;
   @override

@@ -16,6 +16,19 @@ class SubTask with _$SubTask {
 }
 
 @freezed
+class TaskReminder with _$TaskReminder {
+  const factory TaskReminder({
+    required String id,
+    required DateTime date,
+    required int minuteOfDay,
+    @Default(false) bool repeatsDaily,
+  }) = _TaskReminder;
+
+  factory TaskReminder.fromJson(Map<String, dynamic> json) =>
+      _$TaskReminderFromJson(json);
+}
+
+@freezed
 class Task with _$Task {
   const factory Task({
     required String id,
@@ -27,6 +40,9 @@ class Task with _$Task {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    @Default(<TaskReminder>[]) List<TaskReminder> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     @Default(false) bool repeatsDaily,
     @Default(false) bool isCompleted,
     @Default(<SubTask>[]) List<SubTask> subtasks,

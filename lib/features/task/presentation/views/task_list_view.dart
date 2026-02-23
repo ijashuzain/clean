@@ -2,7 +2,6 @@ import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
-import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
 import 'package:logit/features/task/presentation/widgets/date_selector_strip.dart';
 import 'package:logit/features/task/presentation/widgets/task_item_widget.dart';
@@ -19,8 +18,24 @@ class TaskListView extends ConsumerStatefulWidget {
 }
 
 class _TaskListViewState extends ConsumerState<TaskListView> {
+  static const double _timelineTopInset = 8;
+  static const double _tasksTopInset = 12;
+
   final Set<String> _expandedTaskIds = <String>{};
+  final ScrollController _taskScrollController = ScrollController();
   bool _hideFinishedTasks = false;
+  double _extraScrollSpace = 0;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _taskScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +61,12 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     final emptyTitle = _hideFinishedTasks
         ? 'No unfinished tasks for this date'
         : 'No tasks for this date';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _recalculateExtraScrollSpace(hasTasks: visibleTasks.isNotEmpty);
+    });
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -159,105 +180,98 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         ],
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          edgeOffset: 0,
-          displacement: 28,
-          onRefresh: () =>
-              ref.read(taskTimelineProviderProvider.notifier).loadTasks(),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Column(
-              children: [
-                const SizedBox(height: 2),
-                const Center(child: BrandLogo(fontSize: 22)),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        monthText,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
-                            ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            children: [
+              const SizedBox(height: 2),
+              const Center(child: BrandLogo(fontSize: 22)),
+              const SizedBox(height: 8),
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          monthText,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                        ),
                       ),
-                    ),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: isTodaySelected
-                          ? null
-                          : () => ref
-                                .read(taskTimelineProviderProvider.notifier)
-                                .loadTasks(today),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isTodaySelected
-                              ? AppColors.accentGreenMuted
-                              : Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isTodaySelected
-                                ? AppColors.accentGreen
-                                : Theme.of(context).brightness ==
-                                      Brightness.dark
-                                ? AppColors.darkBorder
-                                : AppColors.lightBorder,
+                      InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: isTodaySelected
+                            ? null
+                            : () => ref
+                                  .read(taskTimelineProviderProvider.notifier)
+                                  .loadTasks(today),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.today_rounded,
-                              size: 13,
+                          decoration: BoxDecoration(
+                            color: isTodaySelected
+                                ? AppColors.accentGreenMuted
+                                : Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
                               color: isTodaySelected
                                   ? AppColors.accentGreen
-                                  : null,
+                                  : Theme.of(context).brightness ==
+                                        Brightness.dark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder,
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Today',
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: isTodaySelected
-                                        ? AppColors.accentGreen
-                                        : null,
-                                  ),
-                            ),
-                          ],
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.today_rounded,
+                                size: 13,
+                                color: isTodaySelected
+                                    ? AppColors.accentGreen
+                                    : null,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Today',
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: isTodaySelected
+                                          ? AppColors.accentGreen
+                                          : null,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                DateSelectorStrip(
-                  selectedDate: state.selectedDate,
-                  dayEmojiMap: state.weekEmojiMap,
-                  onDateSelected: (date) => ref
-                      .read(taskTimelineProviderProvider.notifier)
-                      .loadTasks(date),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return _buildTimelineSection(
-                        context,
-                        visibleTasks,
-                        minHeight: constraints.maxHeight,
-                        emptyTitle: emptyTitle,
-                      );
-                    },
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  DateSelectorStrip(
+                    selectedDate: state.selectedDate,
+                    dayEmojiMap: state.weekEmojiMap,
+                    onDateSelected: (date) => ref
+                        .read(taskTimelineProviderProvider.notifier)
+                        .loadTasks(date),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+              Expanded(
+                child: _buildTimelineSection(
+                  context,
+                  visibleTasks,
+                  emptyTitle: emptyTitle,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -267,7 +281,6 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   Widget _buildTimelineSection(
     BuildContext context,
     List<Task> tasks, {
-    required double minHeight,
     required String emptyTitle,
   }) {
     return Stack(
@@ -275,29 +288,37 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         if (tasks.isNotEmpty)
           Positioned(
             left: 63,
-            top: 8,
-            bottom: 28,
+            top: _timelineTopInset,
+            bottom: 0,
             child: Container(width: 1.5, color: AppColors.accentGold),
           ),
         if (tasks.isNotEmpty)
-          const Positioned(left: 58, top: 0, child: _TimelineDot()),
+          Positioned(
+            left: 58,
+            top: _timelineTopInset - 8,
+            child: _TimelineDot(),
+          ),
         if (tasks.isNotEmpty)
-          const Positioned(left: 58, bottom: 20, child: _TimelineDot()),
-        SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: tasks.isEmpty ? 0 : minHeight,
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: 12,
-                right: 2,
-                bottom: tasks.isEmpty ? 20 : 88,
-              ),
-              child: tasks.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 10),
+          const Positioned(left: 58, bottom: 0, child: _TimelineDot()),
+        RefreshIndicator(
+          edgeOffset: 0,
+          displacement: 28,
+          onRefresh: () =>
+              ref.read(taskTimelineProviderProvider.notifier).loadTasks(),
+          child: NotificationListener<ScrollMetricsNotification>(
+            onNotification: (_) {
+              _recalculateExtraScrollSpace(hasTasks: tasks.isNotEmpty);
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _taskScrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                if (tasks.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 22 + _tasksTopInset),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(18),
@@ -306,6 +327,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
                               Icons.assignment_turned_in_outlined,
@@ -333,89 +355,109 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                           ],
                         ),
                       ),
-                    )
-                  : Column(
-                      children: [
-                        for (var i = 0; i < tasks.length; i++)
-                          Dismissible(
-                            key: ValueKey(tasks[i].id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDC4E4E),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.white,
-                              ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: _tasksTopInset,
+                      right: 2,
+                      bottom: 120 + _extraScrollSpace,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final task = tasks[index];
+                        final interactionLocked = _isPreviousDayCompletedTask(
+                          task,
+                        );
+                        return Dismissible(
+                          key: ValueKey(task.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDC4E4E),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            confirmDismiss: (_) async {
-                              return await showDialog<bool>(
-                                    context: context,
-                                    builder: (dialogContext) {
-                                      return AlertDialog(
-                                        title: const Text('Delete task?'),
-                                        content: const Text(
-                                          'This task will be removed permanently.',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(
-                                              dialogContext,
-                                            ).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(
-                                              dialogContext,
-                                            ).pop(true),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ) ??
-                                  false;
-                            },
-                            onDismissed: (_) {
-                              ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(tasks[i].id);
-                            },
-                            child: TaskItemWidget(
-                              task: tasks[i],
-                              subtasksExpanded: _expandedTaskIds.contains(
-                                tasks[i].id,
-                              ),
-                              onToggleSubtasks: () {
-                                setState(() {
-                                  if (!_expandedTaskIds.add(tasks[i].id)) {
-                                    _expandedTaskIds.remove(tasks[i].id);
-                                  }
-                                });
-                              },
-                              onTaskToggle: () => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .toggleTask(taskId: tasks[i].id),
-                              onSubTaskChanged: (subtask) => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .toggleTask(
-                                    taskId: tasks[i].id,
-                                    subTaskId: subtask.id,
-                                  ),
-                              onTap: () => context.push(
-                                '${RoutePaths.taskManage}?id=${tasks[i].id}',
-                              ),
-                              onDelete: () => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(tasks[i].id),
+                            child: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.white,
                             ),
                           ),
-                      ],
+                          confirmDismiss: (_) async {
+                            final shouldDelete =
+                                await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) {
+                                    return AlertDialog(
+                                      title: const Text('Delete task?'),
+                                      content: const Text(
+                                        'This task will be removed permanently.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(
+                                            dialogContext,
+                                          ).pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.of(
+                                            dialogContext,
+                                          ).pop(true),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ) ??
+                                false;
+                            if (shouldDelete) {
+                              await ref
+                                  .read(taskTimelineProviderProvider.notifier)
+                                  .deleteTask(task.id);
+                            }
+                            // Keep Dismissible in tree until provider state refreshes.
+                            return false;
+                          },
+                          child: TaskItemWidget(
+                            task: task,
+                            interactionLocked: interactionLocked,
+                            subtasksExpanded: _expandedTaskIds.contains(
+                              task.id,
+                            ),
+                            onToggleSubtasks: () {
+                              setState(() {
+                                if (!_expandedTaskIds.add(task.id)) {
+                                  _expandedTaskIds.remove(task.id);
+                                }
+                              });
+                              _recalculateExtraScrollSpace(
+                                hasTasks: tasks.isNotEmpty,
+                              );
+                            },
+                            onTaskToggle: () => ref
+                                .read(taskTimelineProviderProvider.notifier)
+                                .toggleTask(taskId: task.id),
+                            onSubTaskChanged: (subtask) => ref
+                                .read(taskTimelineProviderProvider.notifier)
+                                .toggleTask(
+                                  taskId: task.id,
+                                  subTaskId: subtask.id,
+                                ),
+                            onTap: () => context.push(
+                              '${RoutePaths.taskManage}?id=${task.id}',
+                            ),
+                            onDelete: () => ref
+                                .read(taskTimelineProviderProvider.notifier)
+                                .deleteTask(task.id),
+                          ),
+                        );
+                      }, childCount: tasks.length),
                     ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -440,8 +482,56 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         task.subtasks.every((subtask) => subtask.isCompleted);
   }
 
+  bool _isPreviousDayCompletedTask(Task task) {
+    if (!_isTaskFinished(task)) {
+      return false;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final scheduled = DateTime(
+      task.scheduledAt.year,
+      task.scheduledAt.month,
+      task.scheduledAt.day,
+    );
+    final end = task.endDate == null
+        ? scheduled
+        : DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day);
+    return end.isBefore(today);
+  }
+
   void _toggleTaskFilter() {
     setState(() => _hideFinishedTasks = !_hideFinishedTasks);
+    _recalculateExtraScrollSpace(hasTasks: true);
+  }
+
+  void _recalculateExtraScrollSpace({required bool hasTasks}) {
+    if (!mounted) {
+      return;
+    }
+
+    if (!_taskScrollController.hasClients || !hasTasks) {
+      if (_extraScrollSpace != 0) {
+        setState(() => _extraScrollSpace = 0);
+      }
+      return;
+    }
+
+    final maxScroll = _taskScrollController.position.maxScrollExtent;
+    final baseScroll = (maxScroll - _extraScrollSpace).clamp(
+      0.0,
+      double.infinity,
+    );
+    const targetMinScrollableExtent = 140.0;
+
+    double target = 0;
+    if (baseScroll > 0 && baseScroll < targetMinScrollableExtent) {
+      target = targetMinScrollableExtent - baseScroll;
+    }
+    target = target.clamp(0.0, targetMinScrollableExtent);
+
+    if ((target - _extraScrollSpace).abs() > 1) {
+      setState(() => _extraScrollSpace = target);
+    }
   }
 }
 

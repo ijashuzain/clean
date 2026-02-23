@@ -20,6 +20,24 @@ Map<String, dynamic> _$$SubTaskModelImplToJson(_$SubTaskModelImpl instance) =>
       'isCompleted': instance.isCompleted,
     };
 
+_$TaskReminderModelImpl _$$TaskReminderModelImplFromJson(
+  Map<String, dynamic> json,
+) => _$TaskReminderModelImpl(
+  id: json['id'] as String,
+  date: DateTime.parse(json['date'] as String),
+  minuteOfDay: (json['minuteOfDay'] as num).toInt(),
+  repeatsDaily: json['repeatsDaily'] as bool? ?? false,
+);
+
+Map<String, dynamic> _$$TaskReminderModelImplToJson(
+  _$TaskReminderModelImpl instance,
+) => <String, dynamic>{
+  'id': instance.id,
+  'date': instance.date.toIso8601String(),
+  'minuteOfDay': instance.minuteOfDay,
+  'repeatsDaily': instance.repeatsDaily,
+};
+
 _$TaskModelImpl _$$TaskModelImplFromJson(Map<String, dynamic> json) =>
     _$TaskModelImpl(
       id: json['id'] as String,
@@ -33,6 +51,17 @@ _$TaskModelImpl _$$TaskModelImplFromJson(Map<String, dynamic> json) =>
           : DateTime.parse(json['endDate'] as String),
       startMinuteOfDay: (json['startMinuteOfDay'] as num?)?.toInt(),
       endMinuteOfDay: (json['endMinuteOfDay'] as num?)?.toInt(),
+      reminders:
+          (json['reminders'] as List<dynamic>?)
+              ?.map(
+                (e) => TaskReminderModel.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          const <TaskReminderModel>[],
+      reminderDate: json['reminderDate'] == null
+          ? null
+          : DateTime.parse(json['reminderDate'] as String),
+      reminderMinuteOfDay: (json['reminderMinuteOfDay'] as num?)?.toInt(),
       repeatsDaily: json['repeatsDaily'] as bool? ?? false,
       isCompleted: json['isCompleted'] as bool,
       subtasks: (json['subtasks'] as List<dynamic>)
@@ -53,6 +82,9 @@ Map<String, dynamic> _$$TaskModelImplToJson(_$TaskModelImpl instance) =>
       'endDate': instance.endDate?.toIso8601String(),
       'startMinuteOfDay': instance.startMinuteOfDay,
       'endMinuteOfDay': instance.endMinuteOfDay,
+      'reminders': instance.reminders,
+      'reminderDate': instance.reminderDate?.toIso8601String(),
+      'reminderMinuteOfDay': instance.reminderMinuteOfDay,
       'repeatsDaily': instance.repeatsDaily,
       'isCompleted': instance.isCompleted,
       'subtasks': instance.subtasks,

@@ -17,6 +17,9 @@ abstract class AuthLocalDataSource {
   Future<UserModel> login(String email, String password);
   Future<UserModel> signup(String name, String email, String password);
   Future<UserModel?> getCurrentUser();
+  Future<bool> hasPin();
+  Future<void> setPin(String pin);
+  Future<bool> verifyPin(String pin);
   Future<void> logout();
 }
 
@@ -88,6 +91,28 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }
 
   @override
+  Future<bool> hasPin() async {
+    final storedHash = _box.get(HiveAuthKeys.pinHash) as String?;
+    return storedHash != null && storedHash.isNotEmpty;
+  }
+
+  @override
+  Future<void> setPin(String pin) async {
+    _validatePin(pin);
+    await _box.put(HiveAuthKeys.pinHash, _hash(pin));
+  }
+
+  @override
+  Future<bool> verifyPin(String pin) async {
+    _validatePin(pin);
+    final storedHash = _box.get(HiveAuthKeys.pinHash) as String?;
+    if (storedHash == null || storedHash.isEmpty) {
+      return false;
+    }
+    return storedHash == _hash(pin);
+  }
+
+  @override
   Future<void> logout() async {
     await _box.delete(HiveAuthKeys.currentUserId);
   }
@@ -105,5 +130,13 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   String _hash(String value) {
     return sha256.convert(utf8.encode(value)).toString();
+  }
+
+  void _validatePin(String pin) {
+    final normalized = pin.trim();
+    final isValid = RegExp(r'^\d{4}$').hasMatch(normalized);
+    if (!isValid) {
+      throw Exception('PIN must be exactly 4 digits');
+    }
   }
 }

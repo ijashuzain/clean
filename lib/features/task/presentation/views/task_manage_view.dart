@@ -1,7 +1,9 @@
+import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/widgets/custom_text_field.dart';
 import 'package:logit/core/widgets/primary_button.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
+import 'package:logit/features/task/presentation/views/task_reminders_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,13 +31,21 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   DateTime? _endDate;
   int? _startMinuteOfDay;
   int? _endMinuteOfDay;
+  List<TaskReminder> _reminders = <TaskReminder>[];
   bool _repeatsDaily = false;
   bool _loadingTask = false;
+  bool _isReadOnlyCompletedPastTask = false;
 
   @override
   void initState() {
     super.initState();
-    _scheduledDate = ref.read(taskTimelineProviderProvider).selectedDate;
+    final selectedDate = _toDateOnly(
+      ref.read(taskTimelineProviderProvider).selectedDate,
+    );
+    final today = _toDateOnly(DateTime.now());
+    _scheduledDate = widget.taskId == null && selectedDate.isBefore(today)
+        ? today
+        : selectedDate;
     _addSubTaskField();
     if (widget.taskId != null) {
       _prefillTask(widget.taskId!);
@@ -74,7 +84,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       _endDate = task.endDate;
       _startMinuteOfDay = task.startMinuteOfDay;
       _endMinuteOfDay = task.endMinuteOfDay;
+      _reminders = _normalizeTaskReminders(task);
       _repeatsDaily = task.repeatsDaily;
+      _isReadOnlyCompletedPastTask = _isPreviousDayCompletedTask(task);
 
       for (final draft in _subTaskDrafts) {
         draft.controller.dispose();
@@ -111,10 +123,16 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final today = _toDateOnly(now);
+    final isCreating = widget.taskId == null;
+    final initialDateCandidate = _scheduledDate ?? today;
+    final initialDate = isCreating && initialDateCandidate.isBefore(today)
+        ? today
+        : initialDateCandidate;
     final selected = await showDatePicker(
       context: context,
-      initialDate: _scheduledDate ?? now,
-      firstDate: DateTime(now.year - 1),
+      initialDate: initialDate,
+      firstDate: isCreating ? today : DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
     );
 
@@ -138,9 +156,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     );
 
     if (selected != null) {
-      setState(
-        () => _endDate = DateTime(selected.year, selected.month, selected.day),
-      );
+      setState(() {
+        _endDate = DateTime(selected.year, selected.month, selected.day);
+      });
     }
   }
 
@@ -184,7 +202,40 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
   }
 
+  Future<void> _openReminderManager() async {
+    if (_isReadOnlyCompletedPastTask) {
+      return;
+    }
+    final startDate = _toDateOnly(_scheduledDate ?? DateTime.now());
+    final endDate = _endDate == null ? null : _toDateOnly(_endDate!);
+    final result = await context.push<List<TaskReminder>>(
+      RoutePaths.taskReminders,
+      extra: TaskRemindersArgs(
+        taskTitle: _titleController.text.trim().isEmpty
+            ? 'Untitled task'
+            : _titleController.text.trim(),
+        reminders: _reminders,
+        startDate: startDate,
+        endDate: endDate,
+        readOnly: _isReadOnlyCompletedPastTask,
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    setState(() => _reminders = _sanitizeReminders(result));
+  }
+
   Future<void> _save() async {
+    if (_isReadOnlyCompletedPastTask) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completed tasks from previous days are read-only'),
+        ),
+      );
+      return;
+    }
+
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -210,13 +261,55 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       );
       return;
     }
-
     final baseDate = _scheduledDate ?? DateTime.now();
     final normalizedDate = DateTime(
       baseDate.year,
       baseDate.month,
       baseDate.day,
     );
+    final today = _toDateOnly(DateTime.now());
+    if (widget.taskId == null && normalizedDate.isBefore(today)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can only create tasks for today or future dates'),
+        ),
+      );
+      return;
+    }
+
+    final sanitizedReminders = _sanitizeReminders(_reminders);
+    for (final reminder in sanitizedReminders) {
+      final reminderDate = _toDateOnly(reminder.date);
+      if (reminderDate.isBefore(normalizedDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reminder date cannot be before the task start date'),
+          ),
+        );
+        return;
+      }
+      if (_endDate != null && reminderDate.isAfter(_toDateOnly(_endDate!))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reminder date must be within task date range'),
+          ),
+        );
+        return;
+      }
+      final reminderAt = _combineDateAndMinute(
+        reminderDate,
+        reminder.minuteOfDay,
+      );
+      final canRemindAgain = reminder.repeatsDaily;
+      if (reminderAt.isBefore(DateTime.now()) && !canRemindAgain) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reminder must be in the future for one-day tasks'),
+          ),
+        );
+        return;
+      }
+    }
     final now = DateTime.now();
 
     final subtasks = _subTaskDrafts
@@ -246,7 +339,10 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       endDate: _endDate,
       startMinuteOfDay: _startMinuteOfDay,
       endMinuteOfDay: _endMinuteOfDay,
-      repeatsDaily: _repeatsDaily || _endDate != null,
+      reminders: sanitizedReminders,
+      reminderDate: null,
+      reminderMinuteOfDay: null,
+      repeatsDaily: _repeatsDaily,
       isCompleted: existingTask?.isCompleted ?? false,
       subtasks: subtasks,
       createdAt: existingTask?.createdAt ?? now,
@@ -267,6 +363,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     final endDateLabel = _endDate == null
         ? 'No end date'
         : DateFormat('EEE, d MMM yyyy').format(_endDate!);
+    final reminderCount = _sanitizeReminders(_reminders).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -319,7 +416,10 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
               },
               icon: const Icon(Icons.delete_outline_rounded),
             ),
-          IconButton(onPressed: _save, icon: const Icon(Icons.check_rounded)),
+          IconButton(
+            onPressed: _isReadOnlyCompletedPastTask ? null : _save,
+            icon: const Icon(Icons.check_rounded),
+          ),
         ],
       ),
       body: _loadingTask
@@ -329,6 +429,31 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_isReadOnlyCompletedPastTask) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF2F333D)
+                              : const Color(0xFFE3E0D5),
+                        ),
+                      ),
+                      child: Text(
+                        'This completed task is from a previous day. You can delete it, but editing is locked.',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
+                      ),
+                    ),
+                  ],
                   _sectionTitle('Emoji (optional)'),
                   const SizedBox(height: 8),
                   Align(
@@ -342,6 +467,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     hint: 'Enter your task',
                     controller: _titleController,
                     textInputAction: TextInputAction.next,
+                    readOnly: _isReadOnlyCompletedPastTask,
                   ),
                   const SizedBox(height: 12),
                   CustomTextField(
@@ -350,6 +476,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     hint: 'Work, Health, Personal...',
                     controller: _topicController,
                     textInputAction: TextInputAction.next,
+                    readOnly: _isReadOnlyCompletedPastTask,
                   ),
                   const SizedBox(height: 16),
                   _sectionTitle('Start & End Date'),
@@ -359,7 +486,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     children: [
                       Expanded(
                         child: _compactPickerButton(
-                          onPressed: _pickDate,
+                          onPressed: _isReadOnlyCompletedPastTask
+                              ? null
+                              : _pickDate,
                           icon: Icons.calendar_month_rounded,
                           label: startDateLabel,
                         ),
@@ -367,18 +496,20 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                       const SizedBox(width: 7),
                       Expanded(
                         child: _compactPickerButton(
-                          onPressed: _pickEndDate,
+                          onPressed: _isReadOnlyCompletedPastTask
+                              ? null
+                              : _pickEndDate,
                           icon: Icons.event_repeat_rounded,
                           label: endDateLabel,
                         ),
                       ),
-                      _buildClearActionSlot(
-                        visible: _endDate != null,
-                        tooltip: 'Clear end date',
-                        onPressed: () => setState(() => _endDate = null),
-                      ),
                     ],
                   ),
+                  if (!_isReadOnlyCompletedPastTask && _endDate != null)
+                    _buildInlineResetAction(
+                      label: 'Clear end date',
+                      onPressed: () => setState(() => _endDate = null),
+                    ),
                   const SizedBox(height: 14),
                   _sectionTitle('Start & End Time (optional)'),
                   const SizedBox(height: 8),
@@ -387,7 +518,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     children: [
                       Expanded(
                         child: _compactPickerButton(
-                          onPressed: () => _pickTime(isStart: true),
+                          onPressed: _isReadOnlyCompletedPastTask
+                              ? null
+                              : () => _pickTime(isStart: true),
                           icon: Icons.play_circle_outline_rounded,
                           label: _formatMinuteLabel(
                             _startMinuteOfDay,
@@ -398,7 +531,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                       const SizedBox(width: 7),
                       Expanded(
                         child: _compactPickerButton(
-                          onPressed: () => _pickTime(isStart: false),
+                          onPressed: _isReadOnlyCompletedPastTask
+                              ? null
+                              : () => _pickTime(isStart: false),
                           icon: Icons.stop_circle_outlined,
                           label: _formatMinuteLabel(
                             _endMinuteOfDay,
@@ -406,17 +541,68 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                           ),
                         ),
                       ),
-                      _buildClearActionSlot(
-                        visible:
-                            _startMinuteOfDay != null ||
-                            _endMinuteOfDay != null,
-                        tooltip: 'Clear time',
-                        onPressed: () => setState(() {
-                          _startMinuteOfDay = null;
-                          _endMinuteOfDay = null;
-                        }),
-                      ),
                     ],
+                  ),
+                  if (!_isReadOnlyCompletedPastTask &&
+                      (_startMinuteOfDay != null || _endMinuteOfDay != null))
+                    _buildInlineResetAction(
+                      label: 'Clear time',
+                      onPressed: () => setState(() {
+                        _startMinuteOfDay = null;
+                        _endMinuteOfDay = null;
+                      }),
+                    ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF2F333D)
+                            : const Color(0xFFE3E0D5),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.alarm_rounded, size: 21),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Task reminders',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                reminderCount == 0
+                                    ? 'No reminders configured'
+                                    : '$reminderCount upcoming reminder${reminderCount == 1 ? '' : 's'}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _isReadOnlyCompletedPastTask
+                              ? null
+                              : _openReminderManager,
+                          child: const Text('Manage'),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -464,9 +650,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                         Transform.scale(
                           scale: 0.88,
                           child: Switch.adaptive(
-                            value: _repeatsDaily || _endDate != null,
-                            onChanged: (value) =>
-                                setState(() => _repeatsDaily = value),
+                            value: _repeatsDaily,
+                            onChanged: _isReadOnlyCompletedPastTask
+                                ? null
+                                : (value) => setState(() {
+                                    _repeatsDaily = value;
+                                  }),
                           ),
                         ),
                       ],
@@ -480,6 +669,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     maxLines: 5,
                     controller: _noteController,
                     textInputAction: TextInputAction.newline,
+                    readOnly: _isReadOnlyCompletedPastTask,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -489,7 +679,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                       const Spacer(),
                       InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        onTap: _addSubTaskField,
+                        onTap: _isReadOnlyCompletedPastTask
+                            ? null
+                            : _addSubTaskField,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,
@@ -521,6 +713,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                           Expanded(
                             child: TextField(
                               controller: entry.value.controller,
+                              readOnly: _isReadOnlyCompletedPastTask,
                               style: Theme.of(
                                 context,
                               ).textTheme.bodyMedium?.copyWith(fontSize: 16),
@@ -553,6 +746,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                                   height: 24,
                                 ),
                                 onPressed: () {
+                                  if (_isReadOnlyCompletedPastTask) {
+                                    return;
+                                  }
                                   if (_subTaskDrafts.length == 1) {
                                     _subTaskDrafts.first.controller.clear();
                                     setState(() {});
@@ -576,13 +772,14 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  PrimaryButton(
-                    height: 52,
-                    text: widget.taskId == null
-                        ? 'Create Task'
-                        : 'Save Changes',
-                    onPressed: _save,
-                  ),
+                  if (!_isReadOnlyCompletedPastTask)
+                    PrimaryButton(
+                      height: 52,
+                      text: widget.taskId == null
+                          ? 'Create Task'
+                          : 'Save Changes',
+                      onPressed: _save,
+                    ),
                 ],
               ),
             ),
@@ -598,7 +795,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   }
 
   Widget _compactPickerButton({
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required IconData icon,
     required String label,
   }) {
@@ -629,28 +826,28 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     );
   }
 
-  Widget _buildClearActionSlot({
-    required bool visible,
-    required String tooltip,
+  Widget _buildInlineResetAction({
+    required String label,
     required VoidCallback onPressed,
   }) {
-    return SizedBox(
-      width: 30,
-      height: 44,
-      child: visible
-          ? Center(
-              child: IconButton(
-                tooltip: tooltip,
-                onPressed: onPressed,
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints.tightFor(
-                  width: 22,
-                  height: 22,
-                ),
-                icon: const Icon(Icons.close_rounded, size: 19),
-              ),
-            )
-          : const SizedBox.shrink(),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+          minimumSize: const Size(0, 28),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: const Icon(Icons.close_rounded, size: 16),
+        label: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 
@@ -671,6 +868,7 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
           width: 34,
           child: TextField(
             controller: _emojiController,
+            readOnly: _isReadOnlyCompletedPastTask,
             textInputAction: TextInputAction.next,
             inputFormatters: [_emojiFormatter],
             maxLines: 1,
@@ -705,6 +903,84 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       style: Theme.of(
         context,
       ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    );
+  }
+
+  List<TaskReminder> _sanitizeReminders(List<TaskReminder> reminders) {
+    final now = DateTime.now();
+    return reminders
+        .where((reminder) => _reminderHasUpcomingOccurrence(reminder, now))
+        .map((reminder) => reminder.copyWith(date: _toDateOnly(reminder.date)))
+        .toList(growable: false);
+  }
+
+  bool _reminderHasUpcomingOccurrence(TaskReminder reminder, DateTime now) {
+    final start = _toDateOnly(reminder.date);
+    final end = _endDate == null ? null : _toDateOnly(_endDate!);
+    if (!reminder.repeatsDaily) {
+      return _combineDateAndMinute(start, reminder.minuteOfDay).isAfter(now);
+    }
+
+    var cursor = _toDateOnly(now);
+    if (cursor.isBefore(start)) {
+      cursor = start;
+    }
+    while (end == null || !cursor.isAfter(end)) {
+      final at = _combineDateAndMinute(cursor, reminder.minuteOfDay);
+      if (at.isAfter(now)) {
+        return true;
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return false;
+  }
+
+  List<TaskReminder> _normalizeTaskReminders(Task task) {
+    if (task.reminders.isNotEmpty) {
+      return _sanitizeReminders(task.reminders);
+    }
+    if (task.reminderDate != null && task.reminderMinuteOfDay != null) {
+      return _sanitizeReminders(<TaskReminder>[
+        TaskReminder(
+          id: 'legacy_${task.id}',
+          date: task.reminderDate!,
+          minuteOfDay: task.reminderMinuteOfDay!,
+          repeatsDaily: false,
+        ),
+      ]);
+    }
+    return const <TaskReminder>[];
+  }
+
+  bool _isPreviousDayCompletedTask(Task task) {
+    if (!_isTaskFinished(task)) {
+      return false;
+    }
+    final today = _toDateOnly(DateTime.now());
+    final start = _toDateOnly(task.scheduledAt);
+    final end = task.endDate == null ? start : _toDateOnly(task.endDate!);
+    return end.isBefore(today);
+  }
+
+  bool _isTaskFinished(Task task) {
+    if (task.isCompleted) {
+      return true;
+    }
+    return task.subtasks.isNotEmpty &&
+        task.subtasks.every((subtask) => subtask.isCompleted);
+  }
+
+  DateTime _toDateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _combineDateAndMinute(DateTime date, int minuteOfDay) {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      minuteOfDay ~/ 60,
+      minuteOfDay % 60,
     );
   }
 }

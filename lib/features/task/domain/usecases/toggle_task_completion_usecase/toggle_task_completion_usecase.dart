@@ -24,6 +24,7 @@ class ToggleTaskCompletionUseCase
   Future<Result<void>> call(ToggleTaskCompletionParams params) async {
     return taskRepository.toggleTaskCompletion(
       taskId: params.taskId,
+      forDate: params.forDate,
       subTaskId: params.subTaskId,
     );
   }
@@ -31,7 +32,12 @@ class ToggleTaskCompletionUseCase
 
 class ToggleTaskCompletionParams {
   final String taskId;
+  final DateTime? forDate;
   final String? subTaskId;
 
-  ToggleTaskCompletionParams({required this.taskId, this.subTaskId});
+  ToggleTaskCompletionParams({
+    required this.taskId,
+    this.forDate,
+    this.subTaskId,
+  });
 }

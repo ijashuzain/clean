@@ -27,14 +27,24 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
     final rawTasks =
         _box.get(HiveTaskKeys.tasks, defaultValue: <dynamic>[])
             as List<dynamic>;
-    return rawTasks
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .map(TaskModel.fromJson)
-        .toList(growable: false)
-      ..sort(
-        (first, second) => first.scheduledAt.compareTo(second.scheduledAt),
-      );
+    final parsedTasks = <TaskModel>[];
+
+    for (final rawTask in rawTasks) {
+      if (rawTask is! Map) {
+        continue;
+      }
+
+      try {
+        parsedTasks.add(TaskModel.fromJson(_normalizeTaskMap(rawTask)));
+      } catch (_) {
+        // Skip invalid/legacy payloads instead of crashing the whole timeline.
+      }
+    }
+
+    parsedTasks.sort(
+      (first, second) => first.scheduledAt.compareTo(second.scheduledAt),
+    );
+    return parsedTasks.toList(growable: false);
   }
 
   @override
@@ -81,5 +91,49 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
     return Map<String, dynamic>.from(
       jsonDecode(jsonEncode(model.toJson())) as Map<String, dynamic>,
     );
+  }
+
+  Map<String, dynamic> _normalizeTaskMap(Map source) {
+    final normalized = _normalizeMap(Map<dynamic, dynamic>.from(source));
+
+    normalized['reminders'] = _normalizeModelList(normalized['reminders']);
+    normalized['subtasks'] = _normalizeModelList(normalized['subtasks']);
+
+    return normalized;
+  }
+
+  List<Map<String, dynamic>> _normalizeModelList(dynamic value) {
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map((item) => _normalizeMap(Map<dynamic, dynamic>.from(item)))
+          .toList(growable: false);
+    }
+
+    if (value is Map) {
+      return value.values
+          .whereType<Map>()
+          .map((item) => _normalizeMap(Map<dynamic, dynamic>.from(item)))
+          .toList(growable: false);
+    }
+
+    return const <Map<String, dynamic>>[];
+  }
+
+  Map<String, dynamic> _normalizeMap(Map<dynamic, dynamic> source) {
+    return source.map<String, dynamic>(
+      (key, value) =>
+          MapEntry<String, dynamic>(key.toString(), _normalizeValue(value)),
+    );
+  }
+
+  dynamic _normalizeValue(dynamic value) {
+    if (value is Map) {
+      return _normalizeMap(Map<dynamic, dynamic>.from(value));
+    }
+    if (value is List) {
+      return value.map(_normalizeValue).toList(growable: false);
+    }
+    return value;
   }
 }

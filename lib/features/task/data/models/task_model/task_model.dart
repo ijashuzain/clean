@@ -29,6 +29,39 @@ class SubTaskModel with _$SubTaskModel {
 }
 
 @freezed
+class TaskReminderModel with _$TaskReminderModel {
+  const TaskReminderModel._();
+
+  const factory TaskReminderModel({
+    required String id,
+    required DateTime date,
+    required int minuteOfDay,
+    @Default(false) bool repeatsDaily,
+  }) = _TaskReminderModel;
+
+  factory TaskReminderModel.fromJson(Map<String, dynamic> json) =>
+      _$TaskReminderModelFromJson(json);
+
+  TaskReminder toEntity() {
+    return TaskReminder(
+      id: id,
+      date: date,
+      minuteOfDay: minuteOfDay,
+      repeatsDaily: repeatsDaily,
+    );
+  }
+
+  factory TaskReminderModel.fromEntity(TaskReminder entity) {
+    return TaskReminderModel(
+      id: entity.id,
+      date: entity.date,
+      minuteOfDay: entity.minuteOfDay,
+      repeatsDaily: entity.repeatsDaily,
+    );
+  }
+}
+
+@freezed
 class TaskModel with _$TaskModel {
   const TaskModel._();
 
@@ -42,6 +75,9 @@ class TaskModel with _$TaskModel {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    @Default(<TaskReminderModel>[]) List<TaskReminderModel> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     @Default(false) bool repeatsDaily,
     required bool isCompleted,
     required List<SubTaskModel> subtasks,
@@ -63,6 +99,11 @@ class TaskModel with _$TaskModel {
       endDate: endDate,
       startMinuteOfDay: startMinuteOfDay,
       endMinuteOfDay: endMinuteOfDay,
+      reminders: reminders
+          .map((reminder) => reminder.toEntity())
+          .toList(growable: false),
+      reminderDate: reminderDate,
+      reminderMinuteOfDay: reminderMinuteOfDay,
       repeatsDaily: repeatsDaily,
       isCompleted: isCompleted,
       subtasks: subtasks
@@ -84,6 +125,11 @@ class TaskModel with _$TaskModel {
       endDate: entity.endDate,
       startMinuteOfDay: entity.startMinuteOfDay,
       endMinuteOfDay: entity.endMinuteOfDay,
+      reminders: entity.reminders
+          .map(TaskReminderModel.fromEntity)
+          .toList(growable: false),
+      reminderDate: entity.reminderDate,
+      reminderMinuteOfDay: entity.reminderMinuteOfDay,
       repeatsDaily: entity.repeatsDaily,
       isCompleted: entity.isCompleted,
       subtasks: entity.subtasks
