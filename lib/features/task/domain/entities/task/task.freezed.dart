@@ -207,6 +207,223 @@ abstract class _SubTask implements SubTask {
       throw _privateConstructorUsedError;
 }
 
+TaskReminder _$TaskReminderFromJson(Map<String, dynamic> json) {
+  return _TaskReminder.fromJson(json);
+}
+
+/// @nodoc
+mixin _$TaskReminder {
+  String get id => throw _privateConstructorUsedError;
+  DateTime get date => throw _privateConstructorUsedError;
+  int get minuteOfDay => throw _privateConstructorUsedError;
+  bool get repeatsDaily => throw _privateConstructorUsedError;
+
+  /// Serializes this TaskReminder to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of TaskReminder
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $TaskReminderCopyWith<TaskReminder> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $TaskReminderCopyWith<$Res> {
+  factory $TaskReminderCopyWith(
+    TaskReminder value,
+    $Res Function(TaskReminder) then,
+  ) = _$TaskReminderCopyWithImpl<$Res, TaskReminder>;
+  @useResult
+  $Res call({String id, DateTime date, int minuteOfDay, bool repeatsDaily});
+}
+
+/// @nodoc
+class _$TaskReminderCopyWithImpl<$Res, $Val extends TaskReminder>
+    implements $TaskReminderCopyWith<$Res> {
+  _$TaskReminderCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of TaskReminder
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? date = null,
+    Object? minuteOfDay = null,
+    Object? repeatsDaily = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            id: null == id
+                ? _value.id
+                : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            date: null == date
+                ? _value.date
+                : date // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            minuteOfDay: null == minuteOfDay
+                ? _value.minuteOfDay
+                : minuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int,
+            repeatsDaily: null == repeatsDaily
+                ? _value.repeatsDaily
+                : repeatsDaily // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$TaskReminderImplCopyWith<$Res>
+    implements $TaskReminderCopyWith<$Res> {
+  factory _$$TaskReminderImplCopyWith(
+    _$TaskReminderImpl value,
+    $Res Function(_$TaskReminderImpl) then,
+  ) = __$$TaskReminderImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String id, DateTime date, int minuteOfDay, bool repeatsDaily});
+}
+
+/// @nodoc
+class __$$TaskReminderImplCopyWithImpl<$Res>
+    extends _$TaskReminderCopyWithImpl<$Res, _$TaskReminderImpl>
+    implements _$$TaskReminderImplCopyWith<$Res> {
+  __$$TaskReminderImplCopyWithImpl(
+    _$TaskReminderImpl _value,
+    $Res Function(_$TaskReminderImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of TaskReminder
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? date = null,
+    Object? minuteOfDay = null,
+    Object? repeatsDaily = null,
+  }) {
+    return _then(
+      _$TaskReminderImpl(
+        id: null == id
+            ? _value.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        date: null == date
+            ? _value.date
+            : date // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        minuteOfDay: null == minuteOfDay
+            ? _value.minuteOfDay
+            : minuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int,
+        repeatsDaily: null == repeatsDaily
+            ? _value.repeatsDaily
+            : repeatsDaily // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$TaskReminderImpl implements _TaskReminder {
+  const _$TaskReminderImpl({
+    required this.id,
+    required this.date,
+    required this.minuteOfDay,
+    this.repeatsDaily = false,
+  });
+
+  factory _$TaskReminderImpl.fromJson(Map<String, dynamic> json) =>
+      _$$TaskReminderImplFromJson(json);
+
+  @override
+  final String id;
+  @override
+  final DateTime date;
+  @override
+  final int minuteOfDay;
+  @override
+  @JsonKey()
+  final bool repeatsDaily;
+
+  @override
+  String toString() {
+    return 'TaskReminder(id: $id, date: $date, minuteOfDay: $minuteOfDay, repeatsDaily: $repeatsDaily)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$TaskReminderImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.date, date) || other.date == date) &&
+            (identical(other.minuteOfDay, minuteOfDay) ||
+                other.minuteOfDay == minuteOfDay) &&
+            (identical(other.repeatsDaily, repeatsDaily) ||
+                other.repeatsDaily == repeatsDaily));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, id, date, minuteOfDay, repeatsDaily);
+
+  /// Create a copy of TaskReminder
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$TaskReminderImplCopyWith<_$TaskReminderImpl> get copyWith =>
+      __$$TaskReminderImplCopyWithImpl<_$TaskReminderImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$TaskReminderImplToJson(this);
+  }
+}
+
+abstract class _TaskReminder implements TaskReminder {
+  const factory _TaskReminder({
+    required final String id,
+    required final DateTime date,
+    required final int minuteOfDay,
+    final bool repeatsDaily,
+  }) = _$TaskReminderImpl;
+
+  factory _TaskReminder.fromJson(Map<String, dynamic> json) =
+      _$TaskReminderImpl.fromJson;
+
+  @override
+  String get id;
+  @override
+  DateTime get date;
+  @override
+  int get minuteOfDay;
+  @override
+  bool get repeatsDaily;
+
+  /// Create a copy of TaskReminder
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$TaskReminderImplCopyWith<_$TaskReminderImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 Task _$TaskFromJson(Map<String, dynamic> json) {
   return _Task.fromJson(json);
 }
@@ -222,6 +439,9 @@ mixin _$Task {
   DateTime? get endDate => throw _privateConstructorUsedError;
   int? get startMinuteOfDay => throw _privateConstructorUsedError;
   int? get endMinuteOfDay => throw _privateConstructorUsedError;
+  List<TaskReminder> get reminders => throw _privateConstructorUsedError;
+  DateTime? get reminderDate => throw _privateConstructorUsedError;
+  int? get reminderMinuteOfDay => throw _privateConstructorUsedError;
   bool get repeatsDaily => throw _privateConstructorUsedError;
   bool get isCompleted => throw _privateConstructorUsedError;
   List<SubTask> get subtasks => throw _privateConstructorUsedError;
@@ -252,6 +472,9 @@ abstract class $TaskCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    List<TaskReminder> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTask> subtasks,
@@ -284,6 +507,9 @@ class _$TaskCopyWithImpl<$Res, $Val extends Task>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminders = null,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -327,6 +553,18 @@ class _$TaskCopyWithImpl<$Res, $Val extends Task>
             endMinuteOfDay: freezed == endMinuteOfDay
                 ? _value.endMinuteOfDay
                 : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            reminders: null == reminders
+                ? _value.reminders
+                : reminders // ignore: cast_nullable_to_non_nullable
+                      as List<TaskReminder>,
+            reminderDate: freezed == reminderDate
+                ? _value.reminderDate
+                : reminderDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            reminderMinuteOfDay: freezed == reminderMinuteOfDay
+                ? _value.reminderMinuteOfDay
+                : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
                       as int?,
             repeatsDaily: null == repeatsDaily
                 ? _value.repeatsDaily
@@ -372,6 +610,9 @@ abstract class _$$TaskImplCopyWith<$Res> implements $TaskCopyWith<$Res> {
     DateTime? endDate,
     int? startMinuteOfDay,
     int? endMinuteOfDay,
+    List<TaskReminder> reminders,
+    DateTime? reminderDate,
+    int? reminderMinuteOfDay,
     bool repeatsDaily,
     bool isCompleted,
     List<SubTask> subtasks,
@@ -401,6 +642,9 @@ class __$$TaskImplCopyWithImpl<$Res>
     Object? endDate = freezed,
     Object? startMinuteOfDay = freezed,
     Object? endMinuteOfDay = freezed,
+    Object? reminders = null,
+    Object? reminderDate = freezed,
+    Object? reminderMinuteOfDay = freezed,
     Object? repeatsDaily = null,
     Object? isCompleted = null,
     Object? subtasks = null,
@@ -445,6 +689,18 @@ class __$$TaskImplCopyWithImpl<$Res>
             ? _value.endMinuteOfDay
             : endMinuteOfDay // ignore: cast_nullable_to_non_nullable
                   as int?,
+        reminders: null == reminders
+            ? _value._reminders
+            : reminders // ignore: cast_nullable_to_non_nullable
+                  as List<TaskReminder>,
+        reminderDate: freezed == reminderDate
+            ? _value.reminderDate
+            : reminderDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        reminderMinuteOfDay: freezed == reminderMinuteOfDay
+            ? _value.reminderMinuteOfDay
+            : reminderMinuteOfDay // ignore: cast_nullable_to_non_nullable
+                  as int?,
         repeatsDaily: null == repeatsDaily
             ? _value.repeatsDaily
             : repeatsDaily // ignore: cast_nullable_to_non_nullable
@@ -483,12 +739,16 @@ class _$TaskImpl implements _Task {
     this.endDate,
     this.startMinuteOfDay,
     this.endMinuteOfDay,
+    final List<TaskReminder> reminders = const <TaskReminder>[],
+    this.reminderDate,
+    this.reminderMinuteOfDay,
     this.repeatsDaily = false,
     this.isCompleted = false,
     final List<SubTask> subtasks = const <SubTask>[],
     required this.createdAt,
     required this.updatedAt,
-  }) : _subtasks = subtasks;
+  }) : _reminders = reminders,
+       _subtasks = subtasks;
 
   factory _$TaskImpl.fromJson(Map<String, dynamic> json) =>
       _$$TaskImplFromJson(json);
@@ -514,6 +774,19 @@ class _$TaskImpl implements _Task {
   final int? startMinuteOfDay;
   @override
   final int? endMinuteOfDay;
+  final List<TaskReminder> _reminders;
+  @override
+  @JsonKey()
+  List<TaskReminder> get reminders {
+    if (_reminders is EqualUnmodifiableListView) return _reminders;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_reminders);
+  }
+
+  @override
+  final DateTime? reminderDate;
+  @override
+  final int? reminderMinuteOfDay;
   @override
   @JsonKey()
   final bool repeatsDaily;
@@ -536,7 +809,7 @@ class _$TaskImpl implements _Task {
 
   @override
   String toString() {
-    return 'Task(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Task(id: $id, title: $title, topic: $topic, note: $note, iconKey: $iconKey, scheduledAt: $scheduledAt, endDate: $endDate, startMinuteOfDay: $startMinuteOfDay, endMinuteOfDay: $endMinuteOfDay, reminders: $reminders, reminderDate: $reminderDate, reminderMinuteOfDay: $reminderMinuteOfDay, repeatsDaily: $repeatsDaily, isCompleted: $isCompleted, subtasks: $subtasks, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -556,6 +829,14 @@ class _$TaskImpl implements _Task {
                 other.startMinuteOfDay == startMinuteOfDay) &&
             (identical(other.endMinuteOfDay, endMinuteOfDay) ||
                 other.endMinuteOfDay == endMinuteOfDay) &&
+            const DeepCollectionEquality().equals(
+              other._reminders,
+              _reminders,
+            ) &&
+            (identical(other.reminderDate, reminderDate) ||
+                other.reminderDate == reminderDate) &&
+            (identical(other.reminderMinuteOfDay, reminderMinuteOfDay) ||
+                other.reminderMinuteOfDay == reminderMinuteOfDay) &&
             (identical(other.repeatsDaily, repeatsDaily) ||
                 other.repeatsDaily == repeatsDaily) &&
             (identical(other.isCompleted, isCompleted) ||
@@ -580,6 +861,9 @@ class _$TaskImpl implements _Task {
     endDate,
     startMinuteOfDay,
     endMinuteOfDay,
+    const DeepCollectionEquality().hash(_reminders),
+    reminderDate,
+    reminderMinuteOfDay,
     repeatsDaily,
     isCompleted,
     const DeepCollectionEquality().hash(_subtasks),
@@ -612,6 +896,9 @@ abstract class _Task implements Task {
     final DateTime? endDate,
     final int? startMinuteOfDay,
     final int? endMinuteOfDay,
+    final List<TaskReminder> reminders,
+    final DateTime? reminderDate,
+    final int? reminderMinuteOfDay,
     final bool repeatsDaily,
     final bool isCompleted,
     final List<SubTask> subtasks,
@@ -639,6 +926,12 @@ abstract class _Task implements Task {
   int? get startMinuteOfDay;
   @override
   int? get endMinuteOfDay;
+  @override
+  List<TaskReminder> get reminders;
+  @override
+  DateTime? get reminderDate;
+  @override
+  int? get reminderMinuteOfDay;
   @override
   bool get repeatsDaily;
   @override

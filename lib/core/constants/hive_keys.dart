@@ -7,6 +7,7 @@ class HiveBoxNames {
 class HiveAuthKeys {
   static const users = 'users';
   static const currentUserId = 'current_user_id';
+  static const pinHash = 'pin_hash';
 }
 
 class HiveTaskKeys {
@@ -16,4 +17,6 @@ class HiveTaskKeys {
 class HiveSettingsKeys {
   static const themeMode = 'theme_mode';
   static const onboardingSeen = 'onboarding_seen';
+  static const scheduledReminderNotificationIds =
+      'scheduled_reminder_notification_ids';
 }

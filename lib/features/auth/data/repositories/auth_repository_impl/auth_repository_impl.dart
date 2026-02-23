@@ -55,6 +55,36 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<bool>> hasPin() async {
+    try {
+      final response = await authLocalDataSource.hasPin();
+      return Result.success(response);
+    } catch (e) {
+      return Result.failure(Failure.cacheFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<void>> setPin(String pin) async {
+    try {
+      await authLocalDataSource.setPin(pin);
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(Failure.clientFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<bool>> verifyPin(String pin) async {
+    try {
+      final response = await authLocalDataSource.verifyPin(pin);
+      return Result.success(response);
+    } catch (e) {
+      return Result.failure(Failure.clientFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Result<void>> logout() async {
     try {
       await authLocalDataSource.logout();

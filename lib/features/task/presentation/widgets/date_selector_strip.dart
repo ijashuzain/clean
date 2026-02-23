@@ -71,16 +71,16 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
             ? 14.0
             : 17.0;
         final emojiCellSize = cardWidth < 36
-            ? 9.0
+            ? 7.5
             : cardWidth < 42
-            ? 10.5
-            : 12.0;
+            ? 8.5
+            : 9.5;
         final emojiFontSize = cardWidth < 36
-            ? 6.0
+            ? 5.0
             : cardWidth < 42
-            ? 7.0
-            : 8.0;
-        final emojiGap = cardWidth < 42 ? 2.0 : 3.0;
+            ? 5.8
+            : 6.3;
+        final emojiGap = cardWidth < 42 ? 1.5 : 2.0;
         final totalHeight = cardHeight + 21;
 
         return SizedBox(
@@ -202,7 +202,7 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
                   width: isToday ? 1.2 : 1,
                 ),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 3),
               child: Column(
                 children: [
                   Text(
@@ -214,13 +214,20 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
                       height: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   if (emojis.isNotEmpty)
-                    _buildEmojiCluster(
-                      emojis,
-                      cellSize: emojiCellSize,
-                      cellFontSize: emojiFontSize,
-                      cellGap: emojiGap,
+                    SizedBox(
+                      height: cardHeight * 0.32,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topCenter,
+                        child: _buildEmojiCluster(
+                          emojis,
+                          cellSize: emojiCellSize,
+                          cellFontSize: emojiFontSize,
+                          cellGap: emojiGap,
+                        ),
+                      ),
                     ),
                 ],
               ),

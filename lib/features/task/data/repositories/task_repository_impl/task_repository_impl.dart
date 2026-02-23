@@ -19,6 +19,8 @@ TaskRepository taskRepository(Ref ref) {
 }
 
 class TaskRepositoryImpl implements TaskRepository {
+  static const String _dailyOccurrenceSeparator = '__occ__';
+
   final TaskLocalDataSource localDataSource;
   final TaskRemoteDataSource remoteDataSource;
 
@@ -28,18 +30,30 @@ class TaskRepositoryImpl implements TaskRepository {
   });
 
   @override
+  Future<Result<List<Task>>> getAllTasks() async {
+    try {
+      final tasks =
+          (await localDataSource.getTasks())
+              .map((task) => task.toEntity())
+              .toList(growable: false)
+            ..sort(_sortByTimeThenCreation);
+      return Result.success(tasks);
+    } catch (e) {
+      return Result.failure(Failure.cacheFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Result<List<Task>>> getTasksByDate(DateTime date) async {
     try {
-      final targetDate = DateTime(date.year, date.month, date.day);
-      final allTasks = await localDataSource.getTasks();
-      final tasksForDate =
-          allTasks
-              .where((task) => _shouldShowOnDate(task, targetDate))
-              .map((task) => task.toEntity())
-              .toList()
-            ..sort(_sortByTimeThenCreation);
-
-      return Result.success(tasksForDate);
+      final targetDate = _toDateOnly(date);
+      final tasksForDate = await _resolveTasksForDate(
+        targetDate,
+        materializeDailyOccurrences: true,
+      );
+      return Result.success(
+        tasksForDate.map((task) => task.toEntity()).toList(growable: false),
+      );
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
     }
@@ -69,10 +83,12 @@ class TaskRepositoryImpl implements TaskRepository {
       var cursor = start;
       while (!cursor.isAfter(end)) {
         final emojis = <String>[];
-        for (final task in allTasks) {
-          if (!_shouldShowOnDate(task, cursor)) {
-            continue;
-          }
+        final tasksForDate = await _resolveTasksForDate(
+          cursor,
+          materializeDailyOccurrences: false,
+          allTasks: allTasks,
+        );
+        for (final task in tasksForDate) {
           final icon = task.iconKey.trim();
           if (!_isEmoji(icon)) {
             continue;
@@ -98,6 +114,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> toggleTaskCompletion({
     required String taskId,
+    DateTime? forDate,
     String? subTaskId,
   }) async {
     try {
@@ -107,6 +124,22 @@ class TaskRepositoryImpl implements TaskRepository {
       }
 
       final entity = task.toEntity();
+      final today = _toDateOnly(DateTime.now());
+      final targetDate = _toDateOnly(forDate ?? entity.scheduledAt);
+      if (targetDate.isAfter(today)) {
+        return Result.failure(
+          Failure.clientFailure(
+            message: 'Future tasks cannot be completed yet',
+          ),
+        );
+      }
+      if (_isLockedCompletedPastTask(entity)) {
+        return Result.failure(
+          Failure.clientFailure(
+            message: 'Completed tasks from previous days cannot be unchecked',
+          ),
+        );
+      }
       final updated = _toggleEntity(entity, subTaskId: subTaskId);
       await localDataSource.upsertTask(TaskModel.fromEntity(updated));
       return const Result.success(null);
@@ -118,6 +151,49 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> deleteTask(String taskId) async {
     try {
+      final allTasks = await localDataSource.getTasks();
+      final sourceId = _sourceIdFromOccurrenceId(taskId);
+
+      if (sourceId != null) {
+        final idsToDelete = allTasks
+            .where(
+              (task) =>
+                  task.id == sourceId ||
+                  _sourceIdFromOccurrenceId(task.id) == sourceId,
+            )
+            .map((task) => task.id)
+            .toSet();
+        if (idsToDelete.isEmpty) {
+          idsToDelete.add(taskId);
+        }
+        for (final id in idsToDelete) {
+          await localDataSource.deleteTask(id);
+        }
+        return const Result.success(null);
+      }
+
+      TaskModel? rootTask;
+      for (final task in allTasks) {
+        if (task.id == taskId) {
+          rootTask = task;
+          break;
+        }
+      }
+      if (rootTask != null && _isDailyTemplate(rootTask)) {
+        final idsToDelete = allTasks
+            .where(
+              (task) =>
+                  task.id == taskId ||
+                  _sourceIdFromOccurrenceId(task.id) == taskId,
+            )
+            .map((task) => task.id)
+            .toSet();
+        for (final id in idsToDelete) {
+          await localDataSource.deleteTask(id);
+        }
+        return const Result.success(null);
+      }
+
       await localDataSource.deleteTask(taskId);
       return const Result.success(null);
     } catch (e) {
@@ -167,40 +243,249 @@ class TaskRepositoryImpl implements TaskRepository {
     );
   }
 
-  bool _isSameDate(DateTime first, DateTime second) {
-    return first.year == second.year &&
-        first.month == second.month &&
-        first.day == second.day;
-  }
-
-  bool _shouldShowOnDate(TaskModel task, DateTime date) {
-    final scheduledDate = DateTime(
-      task.scheduledAt.year,
-      task.scheduledAt.month,
-      task.scheduledAt.day,
+  Future<List<TaskModel>> _resolveTasksForDate(
+    DateTime date, {
+    required bool materializeDailyOccurrences,
+    List<TaskModel>? allTasks,
+  }) async {
+    final targetDate = _toDateOnly(date);
+    final today = _toDateOnly(DateTime.now());
+    final sourceTasks = (allTasks ?? await localDataSource.getTasks()).toList(
+      growable: true,
     );
 
-    final endDate = task.endDate == null
-        ? null
-        : DateTime(task.endDate!.year, task.endDate!.month, task.endDate!.day);
+    final templateIds = sourceTasks
+        .where((task) => !_isDailyOccurrence(task))
+        .map((task) => task.id)
+        .toSet();
+    final occurrenceBySource = <String, TaskModel>{};
 
+    for (final task in sourceTasks) {
+      if (!_isDailyOccurrence(task)) {
+        continue;
+      }
+      if (!_isSameDate(_toDateOnly(task.scheduledAt), targetDate)) {
+        continue;
+      }
+      final sourceId = _sourceIdFromOccurrenceId(task.id);
+      if (sourceId != null) {
+        occurrenceBySource[sourceId] = task;
+      }
+    }
+
+    final tasksForDate = <TaskModel>[];
+    final pendingUpserts = <TaskModel>[];
+
+    for (final task in sourceTasks) {
+      if (_isDailyOccurrence(task)) {
+        continue;
+      }
+
+      final startDate = _toDateOnly(task.scheduledAt);
+      final endDate = task.endDate == null ? null : _toDateOnly(task.endDate!);
+
+      if (_isDailyTemplate(task)) {
+        if (targetDate.isBefore(startDate)) {
+          continue;
+        }
+        if (endDate != null && targetDate.isAfter(endDate)) {
+          continue;
+        }
+
+        var normalizedTemplate = task;
+        final shouldResetTemplateCompletion =
+            task.isCompleted ||
+            task.subtasks.any((subtask) => subtask.isCompleted);
+        if (shouldResetTemplateCompletion) {
+          normalizedTemplate = task.copyWith(
+            isCompleted: false,
+            subtasks: task.subtasks
+                .map((subtask) => subtask.copyWith(isCompleted: false))
+                .toList(growable: false),
+            updatedAt: DateTime.now(),
+          );
+          pendingUpserts.add(normalizedTemplate);
+        }
+
+        if (targetDate.isAfter(today)) {
+          tasksForDate.add(normalizedTemplate);
+          continue;
+        }
+
+        var occurrence = occurrenceBySource[normalizedTemplate.id];
+        if (occurrence == null && materializeDailyOccurrences) {
+          occurrence = _buildDailyOccurrence(
+            source: normalizedTemplate,
+            date: targetDate,
+          );
+          occurrenceBySource[normalizedTemplate.id] = occurrence;
+          pendingUpserts.add(occurrence);
+        }
+
+        if (occurrence != null) {
+          tasksForDate.add(occurrence);
+        } else {
+          tasksForDate.add(normalizedTemplate);
+        }
+        continue;
+      }
+
+      if (_shouldShowNonDailyOnDate(
+        task: task,
+        scheduledDate: startDate,
+        endDate: endDate,
+        date: targetDate,
+      )) {
+        tasksForDate.add(task);
+      }
+    }
+
+    for (final occurrence in sourceTasks.where(_isDailyOccurrence)) {
+      final sourceId = _sourceIdFromOccurrenceId(occurrence.id);
+      if (sourceId == null || templateIds.contains(sourceId)) {
+        continue;
+      }
+      if (_isSameDate(_toDateOnly(occurrence.scheduledAt), targetDate)) {
+        tasksForDate.add(occurrence);
+      }
+    }
+
+    if (materializeDailyOccurrences && pendingUpserts.isNotEmpty) {
+      for (final task in pendingUpserts) {
+        await localDataSource.upsertTask(task);
+      }
+    }
+
+    tasksForDate.sort(
+      (first, second) =>
+          _sortByTimeThenCreation(first.toEntity(), second.toEntity()),
+    );
+    return tasksForDate.toList(growable: false);
+  }
+
+  bool _shouldShowNonDailyOnDate({
+    required TaskModel task,
+    required DateTime scheduledDate,
+    required DateTime? endDate,
+    required DateTime date,
+  }) {
     if (date.isBefore(scheduledDate)) {
       return false;
     }
+
+    if (_shouldCarryForwardUnfinishedTask(
+      task: task,
+      scheduledDate: scheduledDate,
+      endDate: endDate,
+      date: date,
+    )) {
+      return true;
+    }
+
     if (endDate != null && date.isAfter(endDate)) {
       return false;
     }
 
-    // Show within [start, end] range when end date is provided.
     if (endDate != null) {
       return true;
     }
 
-    if (_isSameDate(scheduledDate, date)) {
-      return true;
-    }
+    return _isSameDate(scheduledDate, date);
+  }
 
-    return task.repeatsDaily && scheduledDate.isBefore(date);
+  bool _shouldCarryForwardUnfinishedTask({
+    required TaskModel task,
+    required DateTime scheduledDate,
+    required DateTime? endDate,
+    required DateTime date,
+  }) {
+    if (_isDailyTemplate(task)) {
+      return false;
+    }
+    if (_isTaskFinishedModel(task)) {
+      return false;
+    }
+    final today = _toDateOnly(DateTime.now());
+    if (!_isSameDate(date, today)) {
+      return false;
+    }
+    if (endDate != null && !endDate.isBefore(today)) {
+      return false;
+    }
+    return scheduledDate.isBefore(today);
+  }
+
+  bool _isLockedCompletedPastTask(Task task) {
+    if (!_isTaskFinished(task)) {
+      return false;
+    }
+    final today = _toDateOnly(DateTime.now());
+    final start = _toDateOnly(task.scheduledAt);
+    final end = task.endDate == null ? start : _toDateOnly(task.endDate!);
+    return end.isBefore(today);
+  }
+
+  DateTime _toDateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  bool _isDailyOccurrence(TaskModel task) {
+    return _sourceIdFromOccurrenceId(task.id) != null;
+  }
+
+  bool _isDailyTemplate(TaskModel task) {
+    return task.repeatsDaily &&
+        task.endDate == null &&
+        !_isDailyOccurrence(task);
+  }
+
+  String? _sourceIdFromOccurrenceId(String id) {
+    final separatorIndex = id.lastIndexOf(_dailyOccurrenceSeparator);
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    final suffix = id.substring(
+      separatorIndex + _dailyOccurrenceSeparator.length,
+    );
+    if (suffix.length != 8 || int.tryParse(suffix) == null) {
+      return null;
+    }
+    return id.substring(0, separatorIndex);
+  }
+
+  TaskModel _buildDailyOccurrence({
+    required TaskModel source,
+    required DateTime date,
+  }) {
+    final normalizedDate = _toDateOnly(date);
+    final now = DateTime.now();
+    return source.copyWith(
+      id: '${source.id}$_dailyOccurrenceSeparator${_yyyymmdd(normalizedDate)}',
+      scheduledAt: normalizedDate,
+      endDate: null,
+      isCompleted: false,
+      subtasks: source.subtasks
+          .map((subtask) => subtask.copyWith(isCompleted: false))
+          .toList(growable: false),
+      reminders: const <TaskReminderModel>[],
+      reminderDate: null,
+      reminderMinuteOfDay: null,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  String _yyyymmdd(DateTime date) {
+    final yyyy = date.year.toString().padLeft(4, '0');
+    final mm = date.month.toString().padLeft(2, '0');
+    final dd = date.day.toString().padLeft(2, '0');
+    return '$yyyy$mm$dd';
+  }
+
+  bool _isSameDate(DateTime first, DateTime second) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
   }
 
   bool _isEmoji(String value) {
@@ -208,6 +493,22 @@ class TaskRepositoryImpl implements TaskRepository {
       return false;
     }
     return value.runes.any((rune) => rune > 127);
+  }
+
+  bool _isTaskFinished(Task task) {
+    if (task.isCompleted) {
+      return true;
+    }
+    return task.subtasks.isNotEmpty &&
+        task.subtasks.every((subtask) => subtask.isCompleted);
+  }
+
+  bool _isTaskFinishedModel(TaskModel task) {
+    if (task.isCompleted) {
+      return true;
+    }
+    return task.subtasks.isNotEmpty &&
+        task.subtasks.every((subtask) => subtask.isCompleted);
   }
 
   String _dateKey(DateTime date) {

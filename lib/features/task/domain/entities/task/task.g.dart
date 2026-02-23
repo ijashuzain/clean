@@ -20,6 +20,22 @@ Map<String, dynamic> _$$SubTaskImplToJson(_$SubTaskImpl instance) =>
       'isCompleted': instance.isCompleted,
     };
 
+_$TaskReminderImpl _$$TaskReminderImplFromJson(Map<String, dynamic> json) =>
+    _$TaskReminderImpl(
+      id: json['id'] as String,
+      date: DateTime.parse(json['date'] as String),
+      minuteOfDay: (json['minuteOfDay'] as num).toInt(),
+      repeatsDaily: json['repeatsDaily'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$$TaskReminderImplToJson(_$TaskReminderImpl instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'date': instance.date.toIso8601String(),
+      'minuteOfDay': instance.minuteOfDay,
+      'repeatsDaily': instance.repeatsDaily,
+    };
+
 _$TaskImpl _$$TaskImplFromJson(Map<String, dynamic> json) => _$TaskImpl(
   id: json['id'] as String,
   title: json['title'] as String,
@@ -32,6 +48,15 @@ _$TaskImpl _$$TaskImplFromJson(Map<String, dynamic> json) => _$TaskImpl(
       : DateTime.parse(json['endDate'] as String),
   startMinuteOfDay: (json['startMinuteOfDay'] as num?)?.toInt(),
   endMinuteOfDay: (json['endMinuteOfDay'] as num?)?.toInt(),
+  reminders:
+      (json['reminders'] as List<dynamic>?)
+          ?.map((e) => TaskReminder.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <TaskReminder>[],
+  reminderDate: json['reminderDate'] == null
+      ? null
+      : DateTime.parse(json['reminderDate'] as String),
+  reminderMinuteOfDay: (json['reminderMinuteOfDay'] as num?)?.toInt(),
   repeatsDaily: json['repeatsDaily'] as bool? ?? false,
   isCompleted: json['isCompleted'] as bool? ?? false,
   subtasks:
@@ -54,6 +79,9 @@ Map<String, dynamic> _$$TaskImplToJson(_$TaskImpl instance) =>
       'endDate': instance.endDate?.toIso8601String(),
       'startMinuteOfDay': instance.startMinuteOfDay,
       'endMinuteOfDay': instance.endMinuteOfDay,
+      'reminders': instance.reminders,
+      'reminderDate': instance.reminderDate?.toIso8601String(),
+      'reminderMinuteOfDay': instance.reminderMinuteOfDay,
       'repeatsDaily': instance.repeatsDaily,
       'isCompleted': instance.isCompleted,
       'subtasks': instance.subtasks,

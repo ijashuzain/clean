@@ -2,6 +2,7 @@ import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/theme/theme_mode_provider.dart';
 import 'package:logit/features/auth/presentation/providers/auth_session_provider/auth_session_provider.dart';
+import 'package:logit/features/auth/presentation/providers/pin_auth_session_provider/pin_auth_session_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -72,7 +73,7 @@ class SettingsView extends ConsumerWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   user.email.trim().isEmpty
-                                      ? 'Signed in account'
+                                      ? 'Local device profile'
                                       : user.email,
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
@@ -218,8 +219,8 @@ class SettingsView extends ConsumerWidget {
         await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Logout?'),
-            content: const Text('You will need to log in again to continue.'),
+            title: const Text('Lock app?'),
+            content: const Text('You will need your 4-digit PIN to continue.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -227,7 +228,7 @@ class SettingsView extends ConsumerWidget {
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Logout'),
+                child: const Text('Lock'),
               ),
             ],
           ),
@@ -239,10 +240,11 @@ class SettingsView extends ConsumerWidget {
     }
 
     await ref.read(authSessionNotifierProvider.notifier).logout();
+    ref.read(pinAuthSessionNotifierProvider.notifier).lock();
     if (!context.mounted) {
       return;
     }
-    context.go(RoutePaths.login);
+    context.go(RoutePaths.pinAuth);
   }
 
   static void _showInfo(

@@ -30,7 +30,9 @@ class OnboardingView extends ConsumerWidget {
               final maxWidth = constraints.maxWidth;
               final maxHeight = constraints.maxHeight;
               final cardHeight = (maxHeight * 0.38).clamp(320.0, 380.0);
-              final textColor = isDark ? AppColors.darkText : AppColors.brandText;
+              final textColor = isDark
+                  ? AppColors.darkText
+                  : AppColors.brandText;
 
               return Stack(
                 children: [
@@ -42,7 +44,10 @@ class OnboardingView extends ConsumerWidget {
                       child: SvgPicture.asset(
                         'assets/icons/logo.svg',
                         width: maxWidth * 0.22,
-                        colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+                        colorFilter: ColorFilter.mode(
+                          textColor,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
@@ -69,7 +74,9 @@ class OnboardingView extends ConsumerWidget {
                     child: Container(
                       height: cardHeight,
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : const Color(0xFFF3F3F5),
+                        color: isDark
+                            ? AppColors.darkSurface
+                            : const Color(0xFFF3F3F5),
                         borderRadius: BorderRadius.circular(38),
                       ),
                       child: Stack(
@@ -90,11 +97,12 @@ class OnboardingView extends ConsumerWidget {
                             bottom: 146,
                             child: Text(
                               'Manage\nYour\nDaily Tasks',
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.16,
-                                color: textColor,
-                              ),
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.16,
+                                    color: textColor,
+                                  ),
                             ),
                           ),
                           Positioned(
@@ -104,7 +112,9 @@ class OnboardingView extends ConsumerWidget {
                               'assets/icons/onboarding-scribble-arrow.svg',
                               width: 75,
                               colorFilter: ColorFilter.mode(
-                                isDark ? AppColors.darkMutedText : AppColors.brandText,
+                                isDark
+                                    ? AppColors.darkMutedText
+                                    : AppColors.brandText,
                                 BlendMode.srcIn,
                               ),
                             ),
@@ -117,20 +127,32 @@ class OnboardingView extends ConsumerWidget {
                               height: 54,
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  await ref.read(onboardingStatusNotifierProvider.notifier).complete();
+                                  await ref
+                                      .read(
+                                        onboardingStatusNotifierProvider
+                                            .notifier,
+                                      )
+                                      .complete();
                                   if (context.mounted) {
-                                    context.go(RoutePaths.login);
+                                    context.go(RoutePaths.pinAuth);
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
                                   elevation: 0,
-                                  backgroundColor: isDark ? const Color(0xFF3D3724) : const Color(0xFFEFE7C8),
+                                  backgroundColor: isDark
+                                      ? const Color(0xFF3D3724)
+                                      : const Color(0xFFEFE7C8),
                                   foregroundColor: textColor,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
                                 ),
                                 child: const Text(
                                   'Start Now',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
@@ -152,7 +174,9 @@ class OnboardingView extends ConsumerWidget {
     return Container(
       width: 136,
       height: 1.2,
-      color: isDark ? AppColors.darkMutedText.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.45),
+      color: isDark
+          ? AppColors.darkMutedText.withValues(alpha: 0.18)
+          : Colors.white.withValues(alpha: 0.45),
     );
   }
 }

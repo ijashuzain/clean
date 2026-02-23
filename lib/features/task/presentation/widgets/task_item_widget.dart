@@ -1,6 +1,7 @@
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class TaskItemWidget extends StatelessWidget {
   final Task task;
@@ -10,6 +11,7 @@ class TaskItemWidget extends StatelessWidget {
   final ValueChanged<SubTask> onSubTaskChanged;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final bool interactionLocked;
 
   const TaskItemWidget({
     super.key,
@@ -20,6 +22,7 @@ class TaskItemWidget extends StatelessWidget {
     required this.onSubTaskChanged,
     required this.onTap,
     required this.onDelete,
+    this.interactionLocked = false,
   });
 
   bool _isEmoji(String value) {
@@ -32,11 +35,13 @@ class TaskItemWidget extends StatelessWidget {
     final total = task.subtasks.length;
     final hasTime =
         task.startMinuteOfDay != null || task.endMinuteOfDay != null;
+    final showsDateRange = task.endDate != null;
+    final showsDailyRepeat = task.repeatsDaily && !showsDateRange;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: InkWell(
-        onTap: onTap,
+        onTap: interactionLocked ? null : onTap,
         onLongPress: onDelete,
         borderRadius: BorderRadius.circular(10),
         child: Stack(
@@ -99,9 +104,7 @@ class TaskItemWidget extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (hasTime ||
-                            task.repeatsDaily ||
-                            task.endDate != null)
+                        if (hasTime || showsDailyRepeat || showsDateRange)
                           Row(
                             children: [
                               if (hasTime)
@@ -116,14 +119,33 @@ class TaskItemWidget extends StatelessWidget {
                                             : const Color(0xFFACAFB4),
                                       ),
                                 ),
-                              if (task.repeatsDaily ||
-                                  task.endDate != null) ...[
+                              if (showsDailyRepeat || showsDateRange) ...[
                                 if (hasTime) const SizedBox(width: 6),
-                                const Icon(
-                                  Icons.repeat_rounded,
-                                  size: 14,
-                                  color: Color(0xFF6D6F75),
-                                ),
+                                if (showsDailyRepeat)
+                                  const Icon(
+                                    Icons.repeat_rounded,
+                                    size: 14,
+                                    color: Color(0xFF6D6F75),
+                                  )
+                                else
+                                  Flexible(
+                                    child: Text(
+                                      _dateRangeLabel(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? AppColors.darkMutedText
+                                                : const Color(0xFFACAFB4),
+                                            letterSpacing: 0.2,
+                                          ),
+                                    ),
+                                  ),
                               ],
                             ],
                           ),
@@ -220,7 +242,9 @@ class TaskItemWidget extends StatelessWidget {
                               (subtask) => Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: InkWell(
-                                  onTap: () => onSubTaskChanged(subtask),
+                                  onTap: interactionLocked
+                                      ? null
+                                      : () => onSubTaskChanged(subtask),
                                   child: Row(
                                     children: [
                                       Icon(
@@ -243,8 +267,7 @@ class TaskItemWidget extends StatelessWidget {
                                                     ? TextDecoration.lineThrough
                                                     : null,
                                               ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
                                         ),
                                       ),
                                     ],
@@ -264,7 +287,7 @@ class TaskItemWidget extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: onTaskToggle,
+                  onTap: interactionLocked ? null : onTaskToggle,
                   child: Container(
                     width: 22,
                     height: 22,
@@ -309,6 +332,25 @@ class TaskItemWidget extends StatelessWidget {
   String _formatMinute(int minuteOfDay, BuildContext context) {
     final time = TimeOfDay(hour: minuteOfDay ~/ 60, minute: minuteOfDay % 60);
     return time.format(context);
+  }
+
+  String _dateRangeLabel() {
+    final start = DateTime(
+      task.scheduledAt.year,
+      task.scheduledAt.month,
+      task.scheduledAt.day,
+    );
+    final end = DateTime(
+      task.endDate!.year,
+      task.endDate!.month,
+      task.endDate!.day,
+    );
+    final rangeStart = start.isAfter(end) ? end : start;
+    final rangeEnd = start.isAfter(end) ? start : end;
+    final formatter = DateFormat('MMM dd');
+    final startText = formatter.format(rangeStart).toUpperCase();
+    final endText = formatter.format(rangeEnd).toUpperCase();
+    return '$startText - $endText';
   }
 }
 
