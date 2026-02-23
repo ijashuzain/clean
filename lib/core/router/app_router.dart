@@ -5,6 +5,7 @@ import 'package:logit/features/auth/presentation/views/login_view.dart';
 import 'package:logit/features/auth/presentation/views/pin_auth_view.dart';
 import 'package:logit/features/auth/presentation/views/signup_view.dart';
 import 'package:logit/features/onboarding/presentation/views/onboarding_view.dart';
+import 'package:logit/features/settings/presentation/views/change_pin_view.dart';
 import 'package:logit/features/splash/presentation/views/splash_view.dart';
 import 'package:logit/features/settings/presentation/views/settings_view.dart';
 import 'package:logit/features/task/presentation/views/task_list_view.dart';
@@ -78,6 +79,10 @@ GoRouter appRouter(Ref ref) {
         path: RoutePaths.settings,
         builder: (context, state) => const SettingsView(),
       ),
+      GoRoute(
+        path: RoutePaths.changePin,
+        builder: (context, state) => const ChangePinView(),
+      ),
     ],
     redirect: (context, state) {
       final onboardingState = ref.read(onboardingStatusNotifierProvider);
@@ -93,7 +98,8 @@ GoRouter appRouter(Ref ref) {
           location == RoutePaths.tasks ||
           location == RoutePaths.taskManage ||
           location == RoutePaths.taskReminders ||
-          location == RoutePaths.settings;
+          location == RoutePaths.settings ||
+          location == RoutePaths.changePin;
 
       if (!pinState.isReady || !onboardingState.isReady) {
         return goingSplash ? null : RoutePaths.splash;

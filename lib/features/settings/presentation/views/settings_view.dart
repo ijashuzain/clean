@@ -13,9 +13,7 @@ class SettingsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authSessionNotifierProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
-    final user = authState.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -34,72 +32,6 @@ class SettingsView extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                 children: [
-                  const _SectionTitle(text: 'Account'),
-                  _SurfaceCard(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.accentGold.withValues(
-                                alpha: 0.28,
-                              ),
-                            ),
-                            child: Text(
-                              _initials(user.name, user.email),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.name.trim().isEmpty
-                                      ? 'LogIt User'
-                                      : user.name,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  user.email.trim().isEmpty
-                                      ? 'Local device profile'
-                                      : user.email,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.color
-                                            ?.withValues(alpha: 0.72),
-                                      ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.verified_rounded,
-                            color: AppColors.accentGreen,
-                            size: 19,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   const _SectionTitle(text: 'Appearance'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -108,6 +40,27 @@ class SettingsView extends ConsumerWidget {
                       onChanged: (mode) => ref
                           .read(themeModeNotifierProvider.notifier)
                           .setMode(mode),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const _SectionTitle(text: 'Security'),
+                  _SurfaceCard(
+                    child: _ActionTile(
+                      icon: Icons.lock_reset_rounded,
+                      title: 'Change PIN',
+                      onTap: () async {
+                        final didUpdate =
+                            await context.push<bool>(RoutePaths.changePin) ??
+                            false;
+                        if (!context.mounted || !didUpdate) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('PIN changed successfully'),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -265,25 +218,6 @@ class SettingsView extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static String _initials(String name, String email) {
-    final cleanName = name.trim();
-    if (cleanName.isNotEmpty) {
-      final parts = cleanName.split(RegExp(r'\\s+'));
-      if (parts.length == 1) {
-        return parts.first.substring(0, 1).toUpperCase();
-      }
-      return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-          .toUpperCase();
-    }
-
-    final cleanEmail = email.trim();
-    if (cleanEmail.isNotEmpty) {
-      return cleanEmail.substring(0, 1).toUpperCase();
-    }
-
-    return 'U';
   }
 }
 

@@ -8,4 +8,5 @@ class RoutePaths {
   static const taskManage = '/tasks/manage';
   static const taskReminders = '/tasks/reminders';
   static const settings = '/settings';
+  static const changePin = '/settings/change-pin';
 }
