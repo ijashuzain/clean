@@ -15,8 +15,11 @@ TaskLocalDataSource taskLocalDataSource(Ref ref) {
 abstract class TaskLocalDataSource {
   Future<List<TaskModel>> getTasks();
   Future<void> upsertTask(TaskModel task);
+  Future<void> replaceAllTasks(List<TaskModel> tasks);
   Future<void> deleteTask(String taskId);
   Future<TaskModel?> getTaskById(String taskId);
+  Future<String?> getSyncedUserId();
+  Future<void> setSyncedUserId(String? userId);
 }
 
 class TaskLocalDataSourceImpl implements TaskLocalDataSource {
@@ -64,6 +67,14 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
   }
 
   @override
+  Future<void> replaceAllTasks(List<TaskModel> tasks) async {
+    await _box.put(
+      HiveTaskKeys.tasks,
+      tasks.map(_toStorageMap).toList(growable: false),
+    );
+  }
+
+  @override
   Future<void> deleteTask(String taskId) async {
     final allTasks = await getTasks();
     final updated = allTasks
@@ -84,6 +95,25 @@ class TaskLocalDataSourceImpl implements TaskLocalDataSource {
       }
     }
     return null;
+  }
+
+  @override
+  Future<String?> getSyncedUserId() async {
+    final value = _box.get(HiveTaskKeys.syncedUserId) as String?;
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return value;
+  }
+
+  @override
+  Future<void> setSyncedUserId(String? userId) async {
+    final normalized = userId?.trim() ?? '';
+    if (normalized.isEmpty) {
+      await _box.delete(HiveTaskKeys.syncedUserId);
+      return;
+    }
+    await _box.put(HiveTaskKeys.syncedUserId, normalized);
   }
 
   Map<String, dynamic> _toStorageMap(TaskModel model) {

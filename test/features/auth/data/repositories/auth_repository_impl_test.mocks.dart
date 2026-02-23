@@ -78,6 +78,31 @@ class MockAuthLocalDataSource extends _i1.Mock
           as _i4.Future<_i2.UserModel?>);
 
   @override
+  _i4.Future<bool> hasPin() =>
+      (super.noSuchMethod(
+            Invocation.method(#hasPin, []),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
+
+  @override
+  _i4.Future<void> setPin(String? pin) =>
+      (super.noSuchMethod(
+            Invocation.method(#setPin, [pin]),
+            returnValue: _i4.Future<void>.value(),
+            returnValueForMissingStub: _i4.Future<void>.value(),
+          )
+          as _i4.Future<void>);
+
+  @override
+  _i4.Future<bool> verifyPin(String? pin) =>
+      (super.noSuchMethod(
+            Invocation.method(#verifyPin, [pin]),
+            returnValue: _i4.Future<bool>.value(false),
+          )
+          as _i4.Future<bool>);
+
+  @override
   _i4.Future<void> logout() =>
       (super.noSuchMethod(
             Invocation.method(#logout, []),

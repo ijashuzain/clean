@@ -1,4 +1,5 @@
 import 'package:logit/core/router/route_paths.dart';
+import 'package:logit/features/auth/presentation/providers/auth_session_provider/auth_session_provider.dart';
 import 'package:logit/features/auth/presentation/providers/onboarding_status_provider/onboarding_status_provider.dart';
 import 'package:logit/features/auth/presentation/providers/pin_auth_session_provider/pin_auth_session_provider.dart';
 import 'package:logit/features/auth/presentation/views/login_view.dart';
@@ -26,6 +27,9 @@ GoRouter appRouter(Ref ref) {
     refreshNotifier.value++;
   });
   ref.listen(pinAuthSessionNotifierProvider, (previous, next) {
+    refreshNotifier.value++;
+  });
+  ref.listen(authSessionNotifierProvider, (previous, next) {
     refreshNotifier.value++;
   });
 
@@ -87,6 +91,7 @@ GoRouter appRouter(Ref ref) {
     redirect: (context, state) {
       final onboardingState = ref.read(onboardingStatusNotifierProvider);
       final pinState = ref.read(pinAuthSessionNotifierProvider);
+      final authState = ref.read(authSessionNotifierProvider);
       final location = state.matchedLocation;
 
       final goingSplash = location == RoutePaths.splash;
@@ -101,12 +106,16 @@ GoRouter appRouter(Ref ref) {
           location == RoutePaths.settings ||
           location == RoutePaths.changePin;
 
-      if (!pinState.isReady || !onboardingState.isReady) {
+      if (!pinState.isReady || !onboardingState.isReady || !authState.isReady) {
         return goingSplash ? null : RoutePaths.splash;
       }
 
       if (!onboardingState.seen) {
         return goingOnboarding ? null : RoutePaths.onboarding;
+      }
+
+      if (!authState.isAuthenticated) {
+        return goingAuth ? null : RoutePaths.login;
       }
 
       if (!pinState.hasPin) {

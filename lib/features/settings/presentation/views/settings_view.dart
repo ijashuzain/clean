@@ -13,8 +13,14 @@ class SettingsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authSessionNotifierProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = authState.user;
+    final displayName = user.name.trim().isEmpty ? 'LogIt User' : user.name;
+    final displayEmail = user.email.trim().isEmpty
+        ? 'No email available'
+        : user.email;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +38,60 @@ class SettingsView extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                 children: [
+                  const _SectionTitle(text: 'Account'),
+                  _SurfaceCard(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.darkSurfaceAlt.withValues(
+                                      alpha: 0.85,
+                                    )
+                                  : const Color(0xFFF6F4EB),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.person_outline_rounded),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  displayEmail,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.color
+                                            ?.withValues(alpha: 0.72),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   const _SectionTitle(text: 'Appearance'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -172,8 +232,10 @@ class SettingsView extends ConsumerWidget {
         await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Lock app?'),
-            content: const Text('You will need your 4-digit PIN to continue.'),
+            title: const Text('Logout?'),
+            content: const Text(
+              'This will sign you out and reset your device PIN.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -181,7 +243,7 @@ class SettingsView extends ConsumerWidget {
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Lock'),
+                child: const Text('Logout'),
               ),
             ],
           ),
@@ -193,11 +255,11 @@ class SettingsView extends ConsumerWidget {
     }
 
     await ref.read(authSessionNotifierProvider.notifier).logout();
-    ref.read(pinAuthSessionNotifierProvider.notifier).lock();
+    await ref.read(pinAuthSessionNotifierProvider.notifier).refresh();
     if (!context.mounted) {
       return;
     }
-    context.go(RoutePaths.pinAuth);
+    context.go(RoutePaths.login);
   }
 
   static void _showInfo(

@@ -7,7 +7,7 @@ part of 'task_timeline_provider.dart';
 // **************************************************************************
 
 String _$taskTimelineProviderHash() =>
-    r'4f80ef0ffbea28418f727bc6e1b139390cf4aa39';
+    r'1ad74b4e102ae27d762331390e8f0ef7d293f56d';
 
 /// See also [TaskTimelineProvider].
 @ProviderFor(TaskTimelineProvider)

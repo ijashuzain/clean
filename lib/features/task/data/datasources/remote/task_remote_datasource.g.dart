@@ -7,7 +7,7 @@ part of 'task_remote_datasource.dart';
 // **************************************************************************
 
 String _$taskRemoteDataSourceHash() =>
-    r'e18e28855b8d8627fb23f1b2423bd63ffd65b318';
+    r'bbee90ffa97972f55a6d9e2db1ff669f260bc823';
 
 /// See also [taskRemoteDataSource].
 @ProviderFor(taskRemoteDataSource)

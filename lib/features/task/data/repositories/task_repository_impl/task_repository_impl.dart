@@ -32,6 +32,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<List<Task>>> getAllTasks() async {
     try {
+      await _safeSyncRemoteAndLocal();
       final tasks =
           (await localDataSource.getTasks())
               .map((task) => task.toEntity())
@@ -46,6 +47,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<List<Task>>> getTasksByDate(DateTime date) async {
     try {
+      await _safeSyncRemoteAndLocal();
       final targetDate = _toDateOnly(date);
       final tasksForDate = await _resolveTasksForDate(
         targetDate,
@@ -62,7 +64,9 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> upsertTask(Task task) async {
     try {
-      await localDataSource.upsertTask(TaskModel.fromEntity(task));
+      final model = TaskModel.fromEntity(task);
+      await localDataSource.upsertTask(model);
+      await _safeUpsertRemote(model);
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -75,6 +79,7 @@ class TaskRepositoryImpl implements TaskRepository {
     required DateTime to,
   }) async {
     try {
+      await _safeSyncRemoteAndLocal();
       final allTasks = await localDataSource.getTasks();
       final start = DateTime(from.year, from.month, from.day);
       final end = DateTime(to.year, to.month, to.day);
@@ -118,6 +123,7 @@ class TaskRepositoryImpl implements TaskRepository {
     String? subTaskId,
   }) async {
     try {
+      await _safeSyncRemoteAndLocal();
       final task = await localDataSource.getTaskById(taskId);
       if (task == null) {
         return Result.failure(Failure.clientFailure(message: 'Task not found'));
@@ -141,7 +147,9 @@ class TaskRepositoryImpl implements TaskRepository {
         );
       }
       final updated = _toggleEntity(entity, subTaskId: subTaskId);
-      await localDataSource.upsertTask(TaskModel.fromEntity(updated));
+      final updatedModel = TaskModel.fromEntity(updated);
+      await localDataSource.upsertTask(updatedModel);
+      await _safeUpsertRemote(updatedModel);
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -151,6 +159,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> deleteTask(String taskId) async {
     try {
+      await _safeSyncRemoteAndLocal();
       final allTasks = await localDataSource.getTasks();
       final sourceId = _sourceIdFromOccurrenceId(taskId);
 
@@ -168,6 +177,7 @@ class TaskRepositoryImpl implements TaskRepository {
         }
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
+          await _safeDeleteRemote(id);
         }
         return const Result.success(null);
       }
@@ -190,11 +200,13 @@ class TaskRepositoryImpl implements TaskRepository {
             .toSet();
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
+          await _safeDeleteRemote(id);
         }
         return const Result.success(null);
       }
 
       await localDataSource.deleteTask(taskId);
+      await _safeDeleteRemote(taskId);
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -204,10 +216,85 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<Task?>> getTaskById(String taskId) async {
     try {
+      await _safeSyncRemoteAndLocal();
       final task = await localDataSource.getTaskById(taskId);
       return Result.success(task?.toEntity());
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
+    }
+  }
+
+  Future<void> _safeSyncRemoteAndLocal() async {
+    try {
+      await _syncRemoteAndLocal();
+    } catch (_) {
+      // Keep local-first behavior even when remote is unavailable.
+    }
+  }
+
+  Future<void> _syncRemoteAndLocal() async {
+    final remoteUserId = remoteDataSource.currentUserId;
+    if (remoteUserId == null || !remoteDataSource.canSync) {
+      return;
+    }
+
+    final previousSyncedUserId = await localDataSource.getSyncedUserId();
+    if (previousSyncedUserId != null && previousSyncedUserId != remoteUserId) {
+      await localDataSource.replaceAllTasks(const <TaskModel>[]);
+    }
+    if (previousSyncedUserId != remoteUserId) {
+      await localDataSource.setSyncedUserId(remoteUserId);
+    }
+
+    final localTasks = await localDataSource.getTasks();
+    final remoteTasks = await remoteDataSource.fetchTasks();
+    final remoteById = <String, TaskModel>{
+      for (final task in remoteTasks) task.id: task,
+    };
+    final mergedById = <String, TaskModel>{...remoteById};
+
+    for (final localTask in localTasks) {
+      final remoteTask = remoteById[localTask.id];
+      if (remoteTask == null) {
+        mergedById[localTask.id] = localTask;
+        await remoteDataSource.upsertTask(localTask);
+        continue;
+      }
+
+      if (localTask.updatedAt.isAfter(remoteTask.updatedAt)) {
+        mergedById[localTask.id] = localTask;
+        await remoteDataSource.upsertTask(localTask);
+        continue;
+      }
+
+      mergedById[localTask.id] = remoteTask;
+    }
+
+    final mergedTasks = mergedById.values.toList(
+      growable: false,
+    )..sort((first, second) => first.scheduledAt.compareTo(second.scheduledAt));
+    await localDataSource.replaceAllTasks(mergedTasks);
+  }
+
+  Future<void> _safeUpsertRemote(TaskModel task) async {
+    if (!remoteDataSource.canSync) {
+      return;
+    }
+    try {
+      await remoteDataSource.upsertTask(task);
+    } catch (_) {
+      // Best effort, local data remains the source of truth while offline.
+    }
+  }
+
+  Future<void> _safeDeleteRemote(String taskId) async {
+    if (!remoteDataSource.canSync) {
+      return;
+    }
+    try {
+      await remoteDataSource.deleteTask(taskId);
+    } catch (_) {
+      // Best effort, local delete already succeeded.
     }
   }
 
@@ -353,6 +440,7 @@ class TaskRepositoryImpl implements TaskRepository {
     if (materializeDailyOccurrences && pendingUpserts.isNotEmpty) {
       for (final task in pendingUpserts) {
         await localDataSource.upsertTask(task);
+        await _safeUpsertRemote(task);
       }
     }
 
