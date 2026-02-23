@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:logit/core/failure/failure.dart';
 import 'package:logit/core/utils/result/result.dart';
 import 'package:logit/features/task/data/datasources/local/task_local_datasource.dart';
@@ -18,8 +20,17 @@ TaskRepository taskRepository(Ref ref) {
   );
 }
 
+final taskSyncStatusProvider = StreamProvider.autoDispose<bool>((ref) {
+  return TaskRepositoryImpl.syncStatusStream;
+});
+
 class TaskRepositoryImpl implements TaskRepository {
   static const String _dailyOccurrenceSeparator = '__occ__';
+  static bool _isSyncInProgress = false;
+  static bool _syncRequested = false;
+  static bool _lastSyncStatus = false;
+  static final StreamController<bool> _syncStatusController =
+      StreamController<bool>.broadcast();
 
   final TaskLocalDataSource localDataSource;
   final TaskRemoteDataSource remoteDataSource;
@@ -29,10 +40,32 @@ class TaskRepositoryImpl implements TaskRepository {
     required this.remoteDataSource,
   });
 
+  static Stream<bool> get syncStatusStream {
+    return Stream<bool>.multi((controller) {
+      controller.add(_lastSyncStatus);
+      final subscription = _syncStatusController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  static void _emitSyncStatus(bool isSyncing) {
+    if (_lastSyncStatus == isSyncing) {
+      return;
+    }
+    _lastSyncStatus = isSyncing;
+    if (_syncStatusController.isClosed) {
+      return;
+    }
+    _syncStatusController.add(isSyncing);
+  }
+
   @override
   Future<Result<List<Task>>> getAllTasks() async {
     try {
-      await _safeSyncRemoteAndLocal();
+      _triggerBackgroundSync();
       final tasks =
           (await localDataSource.getTasks())
               .map((task) => task.toEntity())
@@ -47,7 +80,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<List<Task>>> getTasksByDate(DateTime date) async {
     try {
-      await _safeSyncRemoteAndLocal();
+      _triggerBackgroundSync();
       final targetDate = _toDateOnly(date);
       final tasksForDate = await _resolveTasksForDate(
         targetDate,
@@ -66,7 +99,8 @@ class TaskRepositoryImpl implements TaskRepository {
     try {
       final model = TaskModel.fromEntity(task);
       await localDataSource.upsertTask(model);
-      await _safeUpsertRemote(model);
+      await localDataSource.enqueueTaskUpsertForSync(model);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -79,7 +113,7 @@ class TaskRepositoryImpl implements TaskRepository {
     required DateTime to,
   }) async {
     try {
-      await _safeSyncRemoteAndLocal();
+      _triggerBackgroundSync();
       final allTasks = await localDataSource.getTasks();
       final start = DateTime(from.year, from.month, from.day);
       final end = DateTime(to.year, to.month, to.day);
@@ -123,7 +157,6 @@ class TaskRepositoryImpl implements TaskRepository {
     String? subTaskId,
   }) async {
     try {
-      await _safeSyncRemoteAndLocal();
       final task = await localDataSource.getTaskById(taskId);
       if (task == null) {
         return Result.failure(Failure.clientFailure(message: 'Task not found'));
@@ -149,7 +182,8 @@ class TaskRepositoryImpl implements TaskRepository {
       final updated = _toggleEntity(entity, subTaskId: subTaskId);
       final updatedModel = TaskModel.fromEntity(updated);
       await localDataSource.upsertTask(updatedModel);
-      await _safeUpsertRemote(updatedModel);
+      await localDataSource.enqueueTaskUpsertForSync(updatedModel);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -159,7 +193,6 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<void>> deleteTask(String taskId) async {
     try {
-      await _safeSyncRemoteAndLocal();
       final allTasks = await localDataSource.getTasks();
       final sourceId = _sourceIdFromOccurrenceId(taskId);
 
@@ -177,8 +210,9 @@ class TaskRepositoryImpl implements TaskRepository {
         }
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
-          await _safeDeleteRemote(id);
+          await localDataSource.enqueueTaskDeleteForSync(id);
         }
+        _triggerBackgroundSync();
         return const Result.success(null);
       }
 
@@ -200,13 +234,15 @@ class TaskRepositoryImpl implements TaskRepository {
             .toSet();
         for (final id in idsToDelete) {
           await localDataSource.deleteTask(id);
-          await _safeDeleteRemote(id);
+          await localDataSource.enqueueTaskDeleteForSync(id);
         }
+        _triggerBackgroundSync();
         return const Result.success(null);
       }
 
       await localDataSource.deleteTask(taskId);
-      await _safeDeleteRemote(taskId);
+      await localDataSource.enqueueTaskDeleteForSync(taskId);
+      _triggerBackgroundSync();
       return const Result.success(null);
     } catch (e) {
       return Result.failure(Failure.cacheFailure(message: e.toString()));
@@ -216,7 +252,7 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<Result<Task?>> getTaskById(String taskId) async {
     try {
-      await _safeSyncRemoteAndLocal();
+      _triggerBackgroundSync();
       final task = await localDataSource.getTaskById(taskId);
       return Result.success(task?.toEntity());
     } catch (e) {
@@ -224,15 +260,34 @@ class TaskRepositoryImpl implements TaskRepository {
     }
   }
 
-  Future<void> _safeSyncRemoteAndLocal() async {
-    try {
-      await _syncRemoteAndLocal();
-    } catch (_) {
-      // Keep local-first behavior even when remote is unavailable.
+  void _triggerBackgroundSync() {
+    if (!remoteDataSource.canSync || remoteDataSource.currentUserId == null) {
+      return;
     }
+    _syncRequested = true;
+    if (_isSyncInProgress) {
+      return;
+    }
+
+    Future.microtask(() async {
+      if (_isSyncInProgress) {
+        return;
+      }
+      _isSyncInProgress = true;
+      _emitSyncStatus(true);
+      try {
+        while (_syncRequested) {
+          _syncRequested = false;
+          await _syncRemoteAndLocalInBackground();
+        }
+      } finally {
+        _isSyncInProgress = false;
+        _emitSyncStatus(false);
+      }
+    });
   }
 
-  Future<void> _syncRemoteAndLocal() async {
+  Future<void> _syncRemoteAndLocalInBackground() async {
     final remoteUserId = remoteDataSource.currentUserId;
     if (remoteUserId == null || !remoteDataSource.canSync) {
       return;
@@ -241,62 +296,97 @@ class TaskRepositoryImpl implements TaskRepository {
     final previousSyncedUserId = await localDataSource.getSyncedUserId();
     if (previousSyncedUserId != null && previousSyncedUserId != remoteUserId) {
       await localDataSource.replaceAllTasks(const <TaskModel>[]);
+      await localDataSource.clearPendingSyncOperations();
     }
     if (previousSyncedUserId != remoteUserId) {
       await localDataSource.setSyncedUserId(remoteUserId);
     }
 
-    final localTasks = await localDataSource.getTasks();
-    final remoteTasks = await remoteDataSource.fetchTasks();
-    final remoteById = <String, TaskModel>{
-      for (final task in remoteTasks) task.id: task,
-    };
-    final mergedById = <String, TaskModel>{...remoteById};
-
-    for (final localTask in localTasks) {
-      final remoteTask = remoteById[localTask.id];
-      if (remoteTask == null) {
-        mergedById[localTask.id] = localTask;
-        await remoteDataSource.upsertTask(localTask);
-        continue;
-      }
-
-      if (localTask.updatedAt.isAfter(remoteTask.updatedAt) ||
-          localTask.updatedAt.isAtSameMomentAs(remoteTask.updatedAt)) {
-        mergedById[localTask.id] = localTask;
-        await remoteDataSource.upsertTask(localTask);
-        continue;
-      }
-
-      mergedById[localTask.id] = remoteTask;
+    final queueDrained = await _flushPendingSyncOperations();
+    if (!queueDrained) {
+      return;
     }
 
-    final mergedTasks = mergedById.values.toList(
-      growable: false,
-    )..sort((first, second) => first.scheduledAt.compareTo(second.scheduledAt));
+    final localTasks = await localDataSource.getTasks();
+    final remoteTasks = await remoteDataSource.fetchTasks();
+    final localById = <String, TaskModel>{
+      for (final task in localTasks) task.id: task,
+    };
+    final mergedTasks =
+        remoteTasks
+            .map((remoteTask) {
+              final localTask = localById[remoteTask.id];
+              return _mergeRemoteWithLocalOnlyFields(
+                remoteTask: remoteTask,
+                localTask: localTask,
+              );
+            })
+            .toList(growable: false)
+          ..sort(
+            (first, second) => first.scheduledAt.compareTo(second.scheduledAt),
+          );
     await localDataSource.replaceAllTasks(mergedTasks);
   }
 
-  Future<void> _safeUpsertRemote(TaskModel task) async {
-    if (!remoteDataSource.canSync) {
-      return;
-    }
-    try {
-      await remoteDataSource.upsertTask(task);
-    } catch (_) {
-      // Best effort, local data remains the source of truth while offline.
+  Future<bool> _flushPendingSyncOperations() async {
+    while (true) {
+      final operations = await localDataSource.getPendingSyncOperations();
+      if (operations.isEmpty) {
+        return true;
+      }
+
+      final operation = operations.first;
+      final operationId = (operation['id'] ?? '').toString();
+      final operationType = (operation['type'] ?? '').toString();
+      final taskId = (operation['taskId'] ?? '').toString();
+
+      if (operationId.isEmpty) {
+        await localDataSource.clearPendingSyncOperations();
+        return false;
+      }
+
+      try {
+        if (operationType == 'upsert') {
+          final taskMap = operation['task'];
+          if (taskMap is! Map) {
+            await localDataSource.removePendingSyncOperation(operationId);
+            continue;
+          }
+          final task = TaskModel.fromJson(Map<String, dynamic>.from(taskMap));
+          await remoteDataSource.upsertTask(task);
+          await localDataSource.removePendingSyncOperation(operationId);
+          continue;
+        }
+
+        if (operationType == 'delete') {
+          if (taskId.isEmpty) {
+            await localDataSource.removePendingSyncOperation(operationId);
+            continue;
+          }
+          await remoteDataSource.deleteTask(taskId);
+          await localDataSource.removePendingSyncOperation(operationId);
+          continue;
+        }
+
+        await localDataSource.removePendingSyncOperation(operationId);
+      } catch (_) {
+        return false;
+      }
     }
   }
 
-  Future<void> _safeDeleteRemote(String taskId) async {
-    if (!remoteDataSource.canSync) {
-      return;
+  TaskModel _mergeRemoteWithLocalOnlyFields({
+    required TaskModel remoteTask,
+    required TaskModel? localTask,
+  }) {
+    if (localTask == null) {
+      return remoteTask;
     }
-    try {
-      await remoteDataSource.deleteTask(taskId);
-    } catch (_) {
-      // Best effort, local delete already succeeded.
-    }
+    return remoteTask.copyWith(
+      reminders: localTask.reminders,
+      reminderDate: localTask.reminderDate,
+      reminderMinuteOfDay: localTask.reminderMinuteOfDay,
+    );
   }
 
   Task _toggleEntity(Task task, {String? subTaskId}) {
@@ -441,8 +531,9 @@ class TaskRepositoryImpl implements TaskRepository {
     if (materializeDailyOccurrences && pendingUpserts.isNotEmpty) {
       for (final task in pendingUpserts) {
         await localDataSource.upsertTask(task);
-        await _safeUpsertRemote(task);
+        await localDataSource.enqueueTaskUpsertForSync(task);
       }
+      _triggerBackgroundSync();
     }
 
     tasksForDate.sort(

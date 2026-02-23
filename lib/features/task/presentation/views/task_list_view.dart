@@ -1,6 +1,7 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
+import 'package:logit/features/task/data/repositories/task_repository_impl/task_repository_impl.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
 import 'package:logit/features/task/presentation/widgets/date_selector_strip.dart';
@@ -40,6 +41,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(taskTimelineProviderProvider);
+    final isSyncing = ref.watch(taskSyncStatusProvider).valueOrNull ?? false;
 
     ref.listen(taskTimelineProviderProvider, (previous, next) {
       next.taskStatus.maybeWhen(
@@ -180,99 +182,121 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Column(
-            children: [
-              const SizedBox(height: 2),
-              const Center(child: BrandLogo(fontSize: 22)),
-              const SizedBox(height: 8),
-              Column(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(
                 children: [
-                  Row(
+                  const SizedBox(height: 2),
+                  const Center(child: BrandLogo(fontSize: 22)),
+                  const SizedBox(height: 8),
+                  Column(
                     children: [
-                      Expanded(
-                        child: Text(
-                          monthText,
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                        ),
-                      ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: isTodaySelected
-                            ? null
-                            : () => ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .loadTasks(today),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isTodaySelected
-                                ? AppColors.accentGreenMuted
-                                : Theme.of(context).cardColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isTodaySelected
-                                  ? AppColors.accentGreen
-                                  : Theme.of(context).brightness ==
-                                        Brightness.dark
-                                  ? AppColors.darkBorder
-                                  : AppColors.lightBorder,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              monthText,
+                              style: Theme.of(context).textTheme.headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 18,
+                                  ),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.today_rounded,
-                                size: 13,
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: isTodaySelected
+                                ? null
+                                : () => ref
+                                      .read(
+                                        taskTimelineProviderProvider.notifier,
+                                      )
+                                      .loadTasks(today),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
                                 color: isTodaySelected
-                                    ? AppColors.accentGreen
-                                    : null,
+                                    ? AppColors.accentGreenMuted
+                                    : Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isTodaySelected
+                                      ? AppColors.accentGreen
+                                      : Theme.of(context).brightness ==
+                                            Brightness.dark
+                                      ? AppColors.darkBorder
+                                      : AppColors.lightBorder,
+                                ),
                               ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Today',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: isTodaySelected
-                                          ? AppColors.accentGreen
-                                          : null,
-                                    ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.today_rounded,
+                                    size: 13,
+                                    color: isTodaySelected
+                                        ? AppColors.accentGreen
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Today',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: isTodaySelected
+                                              ? AppColors.accentGreen
+                                              : null,
+                                        ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      DateSelectorStrip(
+                        selectedDate: state.selectedDate,
+                        dayEmojiMap: state.weekEmojiMap,
+                        onDateSelected: (date) => ref
+                            .read(taskTimelineProviderProvider.notifier)
+                            .loadTasks(date),
+                      ),
+                      const SizedBox(height: 8),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  DateSelectorStrip(
-                    selectedDate: state.selectedDate,
-                    dayEmojiMap: state.weekEmojiMap,
-                    onDateSelected: (date) => ref
-                        .read(taskTimelineProviderProvider.notifier)
-                        .loadTasks(date),
+                  Expanded(
+                    child: _buildTimelineSection(
+                      context,
+                      visibleTasks,
+                      emptyTitle: emptyTitle,
+                    ),
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
-              Expanded(
-                child: _buildTimelineSection(
-                  context,
-                  visibleTasks,
-                  emptyTitle: emptyTitle,
+            ),
+            Positioned(
+              top: 6,
+              right: 10,
+              child: IgnorePointer(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: isSyncing
+                      ? const _SyncPulseDot(key: ValueKey('syncing-dot'))
+                      : const SizedBox.shrink(key: ValueKey('no-sync-dot')),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -546,6 +570,118 @@ class _TimelineDot extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.accentGold,
         shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class _SyncPulseDot extends StatefulWidget {
+  const _SyncPulseDot({super.key});
+
+  @override
+  State<_SyncPulseDot> createState() => _SyncPulseDotState();
+}
+
+class _SyncPulseDotState extends State<_SyncPulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1150),
+    )..repeat();
+
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1,
+          end: 1.26,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 14,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.26,
+          end: 0.96,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 10,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.96,
+          end: 1.18,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 14,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.18,
+          end: 1,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 62,
+      ),
+    ]).animate(_controller);
+
+    _opacityAnimation = TweenSequence<double>([
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.12,
+          end: 0.35,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 14,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.35,
+          end: 0.16,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 10,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.16,
+          end: 0.3,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 14,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.3,
+          end: 0.12,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 62,
+      ),
+    ]).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Opacity(opacity: _opacityAnimation.value, child: child),
+        );
+      },
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: const BoxDecoration(
+          color: AppColors.accentGreen,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
