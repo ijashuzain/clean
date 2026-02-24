@@ -7,6 +7,7 @@ import 'package:logit/features/task/data/datasources/remote/task_remote_datasour
 import 'package:logit/features/task/data/models/task_model/task_model.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/domain/repositories/task_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -60,6 +61,13 @@ class TaskRepositoryImpl implements TaskRepository {
       return;
     }
     _syncStatusController.add(isSyncing);
+  }
+
+  @visibleForTesting
+  static void resetSyncStateForTesting() {
+    _isSyncInProgress = false;
+    _syncRequested = false;
+    _emitSyncStatus(false);
   }
 
   @override
@@ -280,7 +288,11 @@ class TaskRepositoryImpl implements TaskRepository {
           _syncRequested = false;
           try {
             await _syncRemoteAndLocalInBackground();
-          } catch (_) {
+          } catch (error, stackTrace) {
+            if (kDebugMode) {
+              debugPrint('Task sync background error: $error');
+              debugPrint('$stackTrace');
+            }
             // Keep local-first behavior even if remote sync fails transiently.
           }
         }

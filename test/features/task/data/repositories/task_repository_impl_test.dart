@@ -22,6 +22,8 @@ void main() {
     );
   });
 
+  tearDown(TaskRepositoryImpl.resetSyncStateForTesting);
+
   test('getAllTasks returns local tasks immediately', () async {
     final task = _taskEntity(
       id: 'task-local',
@@ -552,7 +554,7 @@ Task _taskEntity({
 Future<void> _waitForCondition(
   bool Function() condition, {
   int maxAttempts = 200,
-  Duration interval = const Duration(milliseconds: 2),
+  Duration interval = const Duration(milliseconds: 20),
 }) async {
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
     if (condition()) {

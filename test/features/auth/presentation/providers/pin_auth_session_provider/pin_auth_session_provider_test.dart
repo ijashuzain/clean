@@ -1,3 +1,4 @@
+import 'package:logit/core/failure/failure.dart';
 import 'package:logit/core/utils/result/result.dart';
 import 'package:logit/core/utils/status/status.dart';
 import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
@@ -72,6 +73,28 @@ void main() {
     expect(repository.setPinCallCount, 1);
   });
 
+  test('registerPin surfaces repository failure', () async {
+    final repository = _FakeAuthRepository(
+      hasPinResult: const Result.success(false),
+      setPinResult: const Result.failure(
+        Failure.clientFailure(message: 'repo error'),
+      ),
+    );
+    final container = _createContainer(repository);
+    addTearDown(container.dispose);
+
+    await _waitUntilReady(container);
+
+    final ok = await container
+        .read(pinAuthSessionNotifierProvider.notifier)
+        .registerPin('1234');
+
+    expect(ok, isFalse);
+    final state = container.read(pinAuthSessionNotifierProvider);
+    expect(state.actionStatus, const Status.failure('repo error'));
+    expect(repository.setPinCallCount, 1);
+  });
+
   test('unlockWithPin sets failure message for incorrect pin', () async {
     final repository = _FakeAuthRepository(
       hasPinResult: const Result.success(true),
@@ -111,6 +134,29 @@ void main() {
     final state = container.read(pinAuthSessionNotifierProvider);
     expect(state.isUnlocked, isTrue);
     expect(state.actionStatus, const Status.success());
+    expect(repository.verifyPinCallCount, 1);
+  });
+
+  test('unlockWithPin surfaces repository failure', () async {
+    final repository = _FakeAuthRepository(
+      hasPinResult: const Result.success(true),
+      verifyPinResult: const Result.failure(
+        Failure.clientFailure(message: 'repo error'),
+      ),
+    );
+    final container = _createContainer(repository);
+    addTearDown(container.dispose);
+
+    await _waitUntilReady(container);
+
+    final ok = await container
+        .read(pinAuthSessionNotifierProvider.notifier)
+        .unlockWithPin('1234');
+
+    expect(ok, isFalse);
+    final state = container.read(pinAuthSessionNotifierProvider);
+    expect(state.isUnlocked, isFalse);
+    expect(state.actionStatus, const Status.failure('repo error'));
     expect(repository.verifyPinCallCount, 1);
   });
 
