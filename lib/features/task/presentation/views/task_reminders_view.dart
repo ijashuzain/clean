@@ -9,6 +9,8 @@ class TaskRemindersArgs {
   final DateTime startDate;
   final DateTime? endDate;
   final bool readOnly;
+  final int? maxReminderCount;
+  final bool allowRepeatingReminders;
 
   const TaskRemindersArgs({
     required this.taskTitle,
@@ -16,6 +18,8 @@ class TaskRemindersArgs {
     required this.startDate,
     required this.endDate,
     required this.readOnly,
+    this.maxReminderCount,
+    this.allowRepeatingReminders = true,
   });
 }
 
@@ -106,7 +110,9 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
                               if (!widget.args.readOnly) ...[
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Add one or more reminders with optional daily repeat.',
+                                  widget.args.allowRepeatingReminders
+                                      ? 'Add one or more reminders with optional daily repeat.'
+                                      : 'Add one reminder without daily repeat.',
                                   textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
@@ -189,6 +195,15 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
   }
 
   Future<void> _addReminder() async {
+    final maxReminderCount = widget.args.maxReminderCount;
+    if (maxReminderCount != null && _reminders.length >= maxReminderCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You can only add up to $maxReminderCount reminder(s)'),
+        ),
+      );
+      return;
+    }
     final reminder = await _openEditor();
     if (reminder == null) {
       return;
@@ -225,7 +240,9 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
     final now = DateTime.now();
     var selectedDate = _toDateOnly(initial?.date ?? widget.args.startDate);
     var selectedMinute = initial?.minuteOfDay;
-    var repeatsDaily = initial?.repeatsDaily ?? false;
+    var repeatsDaily = widget.args.allowRepeatingReminders
+        ? (initial?.repeatsDaily ?? false)
+        : false;
 
     return showModalBottomSheet<TaskReminder>(
       context: context,
@@ -317,15 +334,16 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    value: repeatsDaily,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Repeat daily'),
-                    subtitle: const Text('Repeat this reminder every day'),
-                    onChanged: (value) {
-                      setModalState(() => repeatsDaily = value);
-                    },
-                  ),
+                  if (widget.args.allowRepeatingReminders)
+                    SwitchListTile.adaptive(
+                      value: repeatsDaily,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Repeat daily'),
+                      subtitle: const Text('Repeat this reminder every day'),
+                      onChanged: (value) {
+                        setModalState(() => repeatsDaily = value);
+                      },
+                    ),
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,

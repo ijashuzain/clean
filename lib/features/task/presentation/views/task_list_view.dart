@@ -196,13 +196,47 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              monthText,
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                  ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () async {
+                                final pickedDate = await context.push<DateTime>(
+                                  RoutePaths.taskCalendar,
+                                );
+                                if (!mounted || pickedDate == null) {
+                                  return;
+                                }
+                                await ref
+                                    .read(taskTimelineProviderProvider.notifier)
+                                    .loadTasks(pickedDate);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                  horizontal: 2,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      monthText,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 18,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.color,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           InkWell(

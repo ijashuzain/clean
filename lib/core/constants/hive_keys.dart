@@ -19,6 +19,7 @@ class HiveTaskKeys {
 class HiveSettingsKeys {
   static const themeMode = 'theme_mode';
   static const onboardingSeen = 'onboarding_seen';
+  static const subscribed = 'subscribed';
   static const scheduledReminderNotificationIds =
       'scheduled_reminder_notification_ids';
 }

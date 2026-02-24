@@ -1,7 +1,9 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/widgets/custom_text_field.dart';
 import 'package:logit/core/widgets/primary_button.dart';
+import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
+import 'package:logit/features/task/domain/usecases/get_tasks_by_date_usecase/get_tasks_by_date_usecase.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
 import 'package:logit/features/task/presentation/views/task_reminders_view.dart';
 import 'package:flutter/material.dart';
@@ -111,6 +113,18 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   }
 
   void _addSubTaskField() {
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
+    if (restrictionsEnabled &&
+        _subTaskDrafts.length >= SubscriptionPlanLimits.freeSubtasksPerTask) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows up to 2 subtasks')),
+        );
+      }
+      return;
+    }
     setState(
       () => _subTaskDrafts.add(
         _SubTaskDraft(
@@ -208,6 +222,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
     final startDate = _toDateOnly(_scheduledDate ?? DateTime.now());
     final endDate = _endDate == null ? null : _toDateOnly(_endDate!);
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
     final result = await context.push<List<TaskReminder>>(
       RoutePaths.taskReminders,
       extra: TaskRemindersArgs(
@@ -218,6 +235,10 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
         startDate: startDate,
         endDate: endDate,
         readOnly: _isReadOnlyCompletedPastTask,
+        maxReminderCount: restrictionsEnabled
+            ? SubscriptionPlanLimits.freeRemindersPerTask
+            : null,
+        allowRepeatingReminders: !restrictionsEnabled,
       ),
     );
     if (!mounted || result == null) {
@@ -277,7 +298,96 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       return;
     }
 
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
     final sanitizedReminders = _sanitizeReminders(_reminders);
+    final validSubtaskCount = _subTaskDrafts
+        .where((draft) => draft.controller.text.trim().isNotEmpty)
+        .length;
+    if (restrictionsEnabled) {
+      if (_repeatsDaily) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Free plan does not support daily repeating tasks'),
+          ),
+        );
+        return;
+      }
+      if (_endDate != null &&
+          _toDateOnly(_endDate!).difference(normalizedDate).inDays >
+              SubscriptionPlanLimits.freeMaxEndDateDays) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Free plan allows end date up to 3 days from start date',
+            ),
+          ),
+        );
+        return;
+      }
+      if (validSubtaskCount > SubscriptionPlanLimits.freeSubtasksPerTask) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows up to 2 subtasks')),
+        );
+        return;
+      }
+      if (sanitizedReminders.length >
+          SubscriptionPlanLimits.freeRemindersPerTask) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows only 1 reminder')),
+        );
+        return;
+      }
+      if (sanitizedReminders.any((reminder) => reminder.repeatsDaily)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Free plan reminders cannot repeat daily'),
+          ),
+        );
+        return;
+      }
+
+      var failedToCheckDailyLimit = false;
+      String? dailyLimitErrorMessage;
+      final tasksByDateResult = await ref
+          .read(getTasksByDateUseCaseProvider)
+          .call(normalizedDate);
+      final exceededFreeTaskLimit = await tasksByDateResult.when(
+        success: (tasks) async {
+          final currentTaskId = widget.taskId;
+          final existingCount = tasks
+              .where((task) => task.id != currentTaskId)
+              .length;
+          final creatingNewTask = currentTaskId == null;
+          return creatingNewTask &&
+              existingCount >= SubscriptionPlanLimits.freeTasksPerDay;
+        },
+        failure: (failure) async {
+          failedToCheckDailyLimit = true;
+          dailyLimitErrorMessage = failure.message;
+          return false;
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      if (failedToCheckDailyLimit) {
+        if (dailyLimitErrorMessage != null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(dailyLimitErrorMessage!)));
+        }
+        return;
+      }
+      if (exceededFreeTaskLimit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows 3 tasks per day')),
+        );
+        return;
+      }
+    }
+
     for (final reminder in sanitizedReminders) {
       final reminderDate = _toDateOnly(reminder.date);
       if (reminderDate.isBefore(normalizedDate)) {
@@ -357,6 +467,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
 
   @override
   Widget build(BuildContext context) {
+    final restrictionsEnabled = ref.watch(
+      subscriptionRestrictionsEnabledProvider,
+    );
     final startDateLabel = DateFormat(
       'EEE, d MMM yyyy',
     ).format(_scheduledDate ?? DateTime.now());
@@ -592,6 +705,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                                   context,
                                 ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
                               ),
+                              if (restrictionsEnabled)
+                                Text(
+                                  'Free plan: 1 reminder, no daily repeat',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(fontSize: 11.8),
+                                ),
                             ],
                           ),
                         ),
@@ -637,9 +756,11 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                _endDate == null
-                                    ? 'Show this task every day until deleted'
-                                    : 'Show this task daily until end date',
+                                restrictionsEnabled
+                                    ? 'Available on Pro plan'
+                                    : (_endDate == null
+                                          ? 'Show this task every day until deleted'
+                                          : 'Show this task daily until end date'),
                                 style: Theme.of(
                                   context,
                                 ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
@@ -651,7 +772,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                           scale: 0.88,
                           child: Switch.adaptive(
                             value: _repeatsDaily,
-                            onChanged: _isReadOnlyCompletedPastTask
+                            onChanged:
+                                _isReadOnlyCompletedPastTask ||
+                                    restrictionsEnabled
                                 ? null
                                 : (value) => setState(() {
                                     _repeatsDaily = value;

@@ -6,7 +6,9 @@ class RoutePaths {
   static const signup = '/signup';
   static const tasks = '/tasks';
   static const taskManage = '/tasks/manage';
+  static const taskCalendar = '/tasks/calendar';
   static const taskReminders = '/tasks/reminders';
+  static const subscription = '/subscription';
   static const settings = '/settings';
   static const changePin = '/settings/change-pin';
 }
