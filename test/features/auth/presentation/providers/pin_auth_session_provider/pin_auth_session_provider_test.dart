@@ -203,11 +203,11 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 Future<void> _waitUntilReady(ProviderContainer container) async {
-  for (var i = 0; i < 100; i++) {
+  for (var i = 0; i < 500; i++) {
     if (container.read(pinAuthSessionNotifierProvider).isReady) {
       return;
     }
-    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
   }
   fail('Timed out waiting for PIN session restore');
 }

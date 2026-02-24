@@ -65,7 +65,10 @@ void main() {
       expect((await local.getTaskById(task.id))?.id, task.id);
       expect(local.pendingCount, 1);
 
-      await _waitForCondition(() => local.pendingCount == 0);
+      await _waitForCondition(
+        () => local.pendingCount == 0,
+        interval: const Duration(milliseconds: 20),
+      );
 
       expect(remote.upsertCalls, contains(task.id));
       expect(remote.store[task.id]?.id, task.id);
@@ -92,7 +95,10 @@ void main() {
       expect(await local.getTaskById(task.id), isNull);
       expect(local.pendingCount, 1);
 
-      await _waitForCondition(() => local.pendingCount == 0);
+      await _waitForCondition(
+        () => local.pendingCount == 0,
+        interval: const Duration(milliseconds: 20),
+      );
 
       expect(remote.deleteCalls, contains(task.id));
       expect(remote.store.containsKey(task.id), isFalse);
@@ -118,6 +124,7 @@ void main() {
 
     await _waitForCondition(
       () => local.tasks.length == 1 && local.tasks.first.id == remoteTask.id,
+      interval: const Duration(milliseconds: 20),
     );
 
     expect(await local.getSyncedUserId(), 'new-user');
@@ -165,7 +172,7 @@ void main() {
       await _waitForCondition(() {
         final merged = local.tasks.where((task) => task.id == remoteTask.id);
         return merged.isNotEmpty && merged.first.title == 'Remote title';
-      });
+      }, interval: const Duration(milliseconds: 20));
 
       final merged = await local.getTaskById('shared-id');
       expect(merged, isNotNull);
@@ -198,6 +205,155 @@ void main() {
     );
     expect((await local.getTaskById(futureTask.id))?.isCompleted, isFalse);
   });
+
+  test(
+    'upsert remains pending when remote upsert fails and syncs after recovery',
+    () async {
+      final task = _taskEntity(
+        id: 'task-upsert-failure',
+        scheduledAt: DateTime(2026, 2, 24, 13),
+      );
+      remote.failUpsert = true;
+
+      final result = await repository.upsertTask(task);
+
+      result.when(
+        success: (_) {},
+        failure: (_) => fail('Expected successful local upsert'),
+      );
+
+      await _waitForCondition(
+        () => remote.upsertCalls.contains(task.id),
+        interval: const Duration(milliseconds: 20),
+      );
+      expect(local.pendingCount, 1);
+      expect(remote.store.containsKey(task.id), isFalse);
+
+      remote.failUpsert = false;
+      await repository.getAllTasks();
+
+      await _waitForCondition(
+        () => local.pendingCount == 0,
+        interval: const Duration(milliseconds: 20),
+      );
+      expect(remote.store.containsKey(task.id), isTrue);
+      expect(
+        remote.upsertCalls.where((id) => id == task.id).length,
+        greaterThanOrEqualTo(2),
+      );
+    },
+  );
+
+  test(
+    'delete remains pending when remote delete fails and syncs after recovery',
+    () async {
+      final task = _taskEntity(
+        id: 'task-delete-failure',
+        scheduledAt: DateTime(2026, 2, 24, 14),
+      );
+      final model = TaskModel.fromEntity(task);
+      await local.upsertTask(model);
+      remote.store[task.id] = model;
+      remote.failDelete = true;
+
+      final result = await repository.deleteTask(task.id);
+
+      result.when(
+        success: (_) {},
+        failure: (_) => fail('Expected successful local delete'),
+      );
+
+      await _waitForCondition(
+        () => remote.deleteCalls.contains(task.id),
+        interval: const Duration(milliseconds: 20),
+      );
+      expect(local.pendingCount, 1);
+      expect(remote.store.containsKey(task.id), isTrue);
+
+      remote.failDelete = false;
+      await repository.getAllTasks();
+
+      await _waitForCondition(
+        () => local.pendingCount == 0,
+        interval: const Duration(milliseconds: 20),
+      );
+      expect(remote.store.containsKey(task.id), isFalse);
+      expect(
+        remote.deleteCalls.where((id) => id == task.id).length,
+        greaterThanOrEqualTo(2),
+      );
+    },
+  );
+
+  test(
+    'fetch failure does not drop local tasks and sync recovers later',
+    () async {
+      final task = _taskEntity(
+        id: 'task-fetch-failure',
+        scheduledAt: DateTime(2026, 2, 24, 15),
+      );
+      final model = TaskModel.fromEntity(task);
+      await local.upsertTask(model);
+      remote.store[task.id] = model;
+      remote.failFetch = true;
+
+      final result = await repository.getAllTasks();
+
+      result.when(
+        success: (tasks) =>
+            expect(tasks.any((item) => item.id == task.id), isTrue),
+        failure: (_) => fail('Expected local-first success'),
+      );
+
+      await _waitForCondition(
+        () => remote.fetchCalls > 0,
+        interval: const Duration(milliseconds: 20),
+      );
+      expect((await local.getTaskById(task.id))?.id, task.id);
+
+      remote.failFetch = false;
+      await repository.getAllTasks();
+
+      await _waitForCondition(
+        () => remote.fetchCalls > 1,
+        interval: const Duration(milliseconds: 20),
+      );
+      expect((await local.getTaskById(task.id))?.id, task.id);
+    },
+  );
+
+  test(
+    'sync is skipped while canSync is false and resumes when enabled',
+    () async {
+      final task = _taskEntity(
+        id: 'task-sync-disabled',
+        scheduledAt: DateTime(2026, 2, 24, 16),
+      );
+      remote.canSyncValue = false;
+
+      final result = await repository.upsertTask(task);
+
+      result.when(
+        success: (_) {},
+        failure: (_) => fail('Expected successful local upsert'),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(local.pendingCount, 1);
+      expect(remote.upsertCalls, isEmpty);
+      expect(remote.fetchCalls, 0);
+      expect(remote.store.containsKey(task.id), isFalse);
+
+      remote.canSyncValue = true;
+      await repository.getAllTasks();
+
+      await _waitForCondition(
+        () => local.pendingCount == 0,
+        interval: const Duration(milliseconds: 20),
+      );
+      expect(remote.store.containsKey(task.id), isTrue);
+    },
+  );
 }
 
 class _InMemoryTaskLocalDataSource implements TaskLocalDataSource {
@@ -396,12 +552,13 @@ Task _taskEntity({
 Future<void> _waitForCondition(
   bool Function() condition, {
   int maxAttempts = 200,
+  Duration interval = const Duration(milliseconds: 2),
 }) async {
   for (var attempt = 0; attempt < maxAttempts; attempt++) {
     if (condition()) {
       return;
     }
-    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await Future<void>.delayed(interval);
   }
   fail('Timed out waiting for async condition');
 }

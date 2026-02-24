@@ -107,6 +107,31 @@ void main() {
     );
   });
 
+  test(
+    'daily reminder is not upcoming at exact reminder minute on end date',
+    () {
+      final reminder = _reminder(
+        date: DateTime(2026, 2, 24),
+        minuteOfDay: 8 * 60,
+        repeatsDaily: true,
+      );
+      final task = _task(
+        scheduledAt: DateTime(2026, 2, 24),
+        endDate: DateTime(2026, 2, 24),
+        reminders: [reminder],
+      );
+
+      expect(
+        scheduler.hasUpcomingOccurrence(
+          task,
+          reminder,
+          now: DateTime(2026, 2, 24, 8, 0),
+        ),
+        isFalse,
+      );
+    },
+  );
+
   test('one-time reminder minute sweep validates boundary at midnight', () {
     final task = _task(
       scheduledAt: DateTime(2026, 2, 24),

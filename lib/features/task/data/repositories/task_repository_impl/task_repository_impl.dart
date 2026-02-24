@@ -278,7 +278,11 @@ class TaskRepositoryImpl implements TaskRepository {
       try {
         while (_syncRequested) {
           _syncRequested = false;
-          await _syncRemoteAndLocalInBackground();
+          try {
+            await _syncRemoteAndLocalInBackground();
+          } catch (_) {
+            // Keep local-first behavior even if remote sync fails transiently.
+          }
         }
       } finally {
         _isSyncInProgress = false;
