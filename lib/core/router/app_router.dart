@@ -10,6 +10,8 @@ import 'package:logit/features/subscription/presentation/providers/subscription_
 import 'package:logit/features/subscription/presentation/views/subscription_view.dart';
 import 'package:logit/features/settings/presentation/views/change_pin_view.dart';
 import 'package:logit/features/splash/presentation/views/splash_view.dart';
+import 'package:logit/features/project/presentation/views/projects_view.dart';
+import 'package:logit/features/project/presentation/views/project_detail_view.dart';
 import 'package:logit/features/settings/presentation/views/settings_view.dart';
 import 'package:logit/features/task/presentation/views/task_list_view.dart';
 import 'package:logit/features/task/presentation/views/task_calendar_view.dart';
@@ -72,7 +74,15 @@ GoRouter appRouter(Ref ref) {
         path: RoutePaths.taskManage,
         builder: (context, state) {
           final taskId = state.uri.queryParameters['id'];
-          return TaskManageView(taskId: taskId);
+          final projectId = state.uri.queryParameters['projectId'];
+          final lockProjectRaw = state.uri.queryParameters['lockProject'] ?? '';
+          final lockProject =
+              lockProjectRaw == '1' || lockProjectRaw.toLowerCase() == 'true';
+          return TaskManageView(
+            taskId: taskId,
+            preselectedProjectId: projectId,
+            lockProjectSelection: lockProject,
+          );
         },
       ),
       GoRoute(
@@ -87,6 +97,20 @@ GoRouter appRouter(Ref ref) {
             return const TaskListView();
           }
           return TaskRemindersView(args: args);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.projects,
+        builder: (context, state) => const ProjectsView(),
+      ),
+      GoRoute(
+        path: RoutePaths.projectDetail,
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['id'] ?? '';
+          if (projectId.trim().isEmpty) {
+            return const ProjectsView();
+          }
+          return ProjectDetailView(projectId: projectId);
         },
       ),
       GoRoute(
@@ -122,6 +146,8 @@ GoRouter appRouter(Ref ref) {
           location == RoutePaths.taskManage ||
           location == RoutePaths.taskCalendar ||
           location == RoutePaths.taskReminders ||
+          location == RoutePaths.projects ||
+          location == RoutePaths.projectDetail ||
           location == RoutePaths.subscription ||
           location == RoutePaths.settings ||
           location == RoutePaths.changePin;

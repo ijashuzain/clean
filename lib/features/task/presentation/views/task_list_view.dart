@@ -1,6 +1,7 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
+import 'package:logit/features/project/presentation/providers/project_provider.dart';
 import 'package:logit/features/task/data/repositories/task_repository_impl/task_repository_impl.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
@@ -78,7 +79,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         children: [
           Container(
             width: 52,
-            height: 106,
+            height: 154,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor.withValues(alpha: 0.98),
               borderRadius: BorderRadius.circular(26),
@@ -137,6 +138,26 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.settings_outlined, size: 20),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  width: 18,
+                  height: 1,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkBorder
+                      : AppColors.lightBorder,
+                ),
+                const SizedBox(height: 2),
+                IconButton(
+                  tooltip: 'Projects',
+                  onPressed: () => context.push(RoutePaths.projects),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
+                  ),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.folder_open_rounded, size: 20),
                 ),
               ],
             ),
@@ -475,12 +496,19 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                               await ref
                                   .read(taskTimelineProviderProvider.notifier)
                                   .deleteTask(task.id);
+                              await ref
+                                  .read(projectNotifierProvider.notifier)
+                                  .assignTaskToProject(
+                                    taskId: task.id,
+                                    projectId: null,
+                                  );
                             }
                             // Keep Dismissible in tree until provider state refreshes.
                             return false;
                           },
                           child: TaskItemWidget(
                             task: task,
+                            topicLabel: _topicLabelForTask(task),
                             interactionLocked: interactionLocked,
                             subtasksExpanded: _expandedTaskIds.contains(
                               task.id,
@@ -507,9 +535,17 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             onTap: () => context.push(
                               '${RoutePaths.taskManage}?id=${task.id}',
                             ),
-                            onDelete: () => ref
-                                .read(taskTimelineProviderProvider.notifier)
-                                .deleteTask(task.id),
+                            onDelete: () async {
+                              await ref
+                                  .read(taskTimelineProviderProvider.notifier)
+                                  .deleteTask(task.id);
+                              await ref
+                                  .read(projectNotifierProvider.notifier)
+                                  .assignTaskToProject(
+                                    taskId: task.id,
+                                    projectId: null,
+                                  );
+                            },
                           ),
                         );
                       }, childCount: tasks.length),
@@ -590,6 +626,26 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     if ((target - _extraScrollSpace).abs() > 1) {
       setState(() => _extraScrollSpace = target);
     }
+  }
+
+  String _topicLabelForTask(Task task) {
+    final projectId = ref
+        .read(projectNotifierProvider.notifier)
+        .projectIdForTaskId(task.id);
+    final topic = task.topic.trim();
+    if (projectId == null || projectId.isEmpty) {
+      return topic;
+    }
+    final project = ref
+        .read(projectNotifierProvider.notifier)
+        .projectById(projectId);
+    if (project == null) {
+      return topic;
+    }
+    if (topic.isEmpty) {
+      return project.name;
+    }
+    return '${project.name} - $topic';
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/widgets/custom_text_field.dart';
 import 'package:logit/core/widgets/primary_button.dart';
+import 'package:logit/features/project/presentation/providers/project_provider.dart';
 import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/domain/usecases/get_tasks_by_date_usecase/get_tasks_by_date_usecase.dart';
@@ -14,8 +15,15 @@ import 'package:intl/intl.dart';
 
 class TaskManageView extends ConsumerStatefulWidget {
   final String? taskId;
+  final String? preselectedProjectId;
+  final bool lockProjectSelection;
 
-  const TaskManageView({super.key, this.taskId});
+  const TaskManageView({
+    super.key,
+    this.taskId,
+    this.preselectedProjectId,
+    this.lockProjectSelection = false,
+  });
 
   @override
   ConsumerState<TaskManageView> createState() => _TaskManageViewState();
@@ -37,6 +45,8 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   bool _repeatsDaily = false;
   bool _loadingTask = false;
   bool _isReadOnlyCompletedPastTask = false;
+  String? _selectedProjectId;
+  bool _projectSelectionTouched = false;
 
   @override
   void initState() {
@@ -48,6 +58,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     _scheduledDate = widget.taskId == null && selectedDate.isBefore(today)
         ? today
         : selectedDate;
+    _selectedProjectId = widget.preselectedProjectId?.trim().isEmpty ?? true
+        ? null
+        : widget.preselectedProjectId!.trim();
+    if (_selectedProjectId != null) {
+      _projectSelectionTouched = true;
+    }
     _addSubTaskField();
     if (widget.taskId != null) {
       _prefillTask(widget.taskId!);
@@ -76,6 +92,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
 
     if (task != null) {
+      final assignedProjectId = ref
+          .read(projectNotifierProvider)
+          .taskProjectMap[task.id];
       _titleController.text = task.title;
       _topicController.text = task.topic;
       _emojiController.text = _containsEmojiRune(task.iconKey)
@@ -89,6 +108,8 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       _reminders = _normalizeTaskReminders(task);
       _repeatsDaily = task.repeatsDaily;
       _isReadOnlyCompletedPastTask = _isPreviousDayCompletedTask(task);
+      _selectedProjectId = assignedProjectId;
+      _projectSelectionTouched = false;
 
       for (final draft in _subTaskDrafts) {
         draft.controller.dispose();
@@ -460,6 +481,17 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     );
 
     await ref.read(taskTimelineProviderProvider.notifier).saveTask(task);
+    final fallbackProjectId = widget.taskId == null
+        ? null
+        : ref
+              .read(projectNotifierProvider.notifier)
+              .projectIdForTaskId(widget.taskId!);
+    final projectIdForSave = _projectSelectionTouched
+        ? _selectedProjectId
+        : (_selectedProjectId ?? fallbackProjectId);
+    await ref
+        .read(projectNotifierProvider.notifier)
+        .assignTaskToProject(taskId: task.id, projectId: projectIdForSave);
     if (mounted) {
       context.pop();
     }
@@ -470,6 +502,29 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     final restrictionsEnabled = ref.watch(
       subscriptionRestrictionsEnabledProvider,
     );
+    final projectState = ref.watch(projectNotifierProvider);
+    final projects = projectState.projects;
+    final effectiveSelectedProjectId =
+        _selectedProjectId ??
+        (widget.taskId == null
+            ? null
+            : ref
+                  .read(projectNotifierProvider.notifier)
+                  .projectIdForTaskId(widget.taskId!));
+    final selectableProjectIds = projects.map((project) => project.id).toSet();
+    final selectedProject = effectiveSelectedProjectId == null
+        ? null
+        : ref
+              .read(projectNotifierProvider.notifier)
+              .projectById(effectiveSelectedProjectId);
+    final dropdownProjectValue =
+        effectiveSelectedProjectId != null &&
+            selectableProjectIds.contains(effectiveSelectedProjectId)
+        ? effectiveSelectedProjectId
+        : null;
+    final canEditProjectSelection =
+        !widget.lockProjectSelection && !_isReadOnlyCompletedPastTask;
+
     final startDateLabel = DateFormat(
       'EEE, d MMM yyyy',
     ).format(_scheduledDate ?? DateTime.now());
@@ -522,6 +577,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                 await ref
                     .read(taskTimelineProviderProvider.notifier)
                     .deleteTask(widget.taskId!);
+                await ref
+                    .read(projectNotifierProvider.notifier)
+                    .assignTaskToProject(
+                      taskId: widget.taskId!,
+                      projectId: null,
+                    );
                 if (!context.mounted) {
                   return;
                 }
@@ -591,6 +652,84 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     textInputAction: TextInputAction.next,
                     readOnly: _isReadOnlyCompletedPastTask,
                   ),
+                  const SizedBox(height: 12),
+                  _sectionTitle('Project (optional)'),
+                  const SizedBox(height: 8),
+                  if (widget.lockProjectSelection)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).cardColor.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF2F333D)
+                              : const Color(0xFFE3E0D5),
+                        ),
+                      ),
+                      child: Text(
+                        selectedProject?.name ??
+                            (effectiveSelectedProjectId == null
+                                ? 'No project'
+                                : 'Selected project'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  else
+                    DropdownButtonFormField<String?>(
+                      key: ValueKey(
+                        'project-dropdown-$dropdownProjectValue-${projects.length}',
+                      ),
+                      initialValue: dropdownProjectValue,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('No project'),
+                        ),
+                        ...projects.map(
+                          (project) => DropdownMenuItem<String?>(
+                            value: project.id,
+                            child: Text(project.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: !canEditProjectSelection
+                          ? null
+                          : (value) => setState(() {
+                              _projectSelectionTouched = true;
+                              _selectedProjectId = value;
+                            }),
+                    ),
+                  if (!widget.lockProjectSelection &&
+                      canEditProjectSelection &&
+                      projects.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Create projects from Projects menu to organize tasks.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   _sectionTitle('Start & End Date'),
                   const SizedBox(height: 8),
