@@ -1,6 +1,8 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
+import 'package:logit/features/project/domain/entities/project.dart';
+import 'package:logit/features/project/presentation/providers/project_provider.dart';
 import 'package:logit/features/task/data/repositories/task_repository_impl/task_repository_impl.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
@@ -21,6 +23,7 @@ class TaskListView extends ConsumerStatefulWidget {
 class _TaskListViewState extends ConsumerState<TaskListView> {
   static const double _timelineTopInset = 8;
   static const double _tasksTopInset = 12;
+  static const String _dailyOccurrenceSeparator = '__occ__';
 
   final Set<String> _expandedTaskIds = <String>{};
   final ScrollController _taskScrollController = ScrollController();
@@ -41,6 +44,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(taskTimelineProviderProvider);
+    final projectState = ref.watch(projectNotifierProvider);
     final isSyncing = ref.watch(taskSyncStatusProvider).valueOrNull ?? false;
 
     ref.listen(taskTimelineProviderProvider, (previous, next) {
@@ -78,7 +82,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         children: [
           Container(
             width: 52,
-            height: 106,
+            height: 154,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor.withValues(alpha: 0.98),
               borderRadius: BorderRadius.circular(26),
@@ -138,6 +142,26 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.settings_outlined, size: 20),
                 ),
+                const SizedBox(height: 2),
+                Container(
+                  width: 18,
+                  height: 1,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkBorder
+                      : AppColors.lightBorder,
+                ),
+                const SizedBox(height: 2),
+                IconButton(
+                  tooltip: 'Projects',
+                  onPressed: () => context.push(RoutePaths.projects),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
+                  ),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.folder_open_rounded, size: 20),
+                ),
               ],
             ),
           ),
@@ -196,13 +220,47 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              monthText,
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                  ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () async {
+                                final pickedDate = await context.push<DateTime>(
+                                  RoutePaths.taskCalendar,
+                                );
+                                if (!mounted || pickedDate == null) {
+                                  return;
+                                }
+                                await ref
+                                    .read(taskTimelineProviderProvider.notifier)
+                                    .loadTasks(pickedDate);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                  horizontal: 2,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      monthText,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 18,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.color,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                           InkWell(
@@ -276,6 +334,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                     child: _buildTimelineSection(
                       context,
                       visibleTasks,
+                      projectState: projectState,
                       emptyTitle: emptyTitle,
                     ),
                   ),
@@ -305,6 +364,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   Widget _buildTimelineSection(
     BuildContext context,
     List<Task> tasks, {
+    required ProjectState projectState,
     required String emptyTitle,
   }) {
     return Stack(
@@ -438,15 +498,17 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                                 ) ??
                                 false;
                             if (shouldDelete) {
-                              await ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(task.id);
+                              await _deleteAndUnassignTask(task.id);
                             }
                             // Keep Dismissible in tree until provider state refreshes.
                             return false;
                           },
                           child: TaskItemWidget(
                             task: task,
+                            topicLabel: _topicLabelForTask(
+                              task: task,
+                              projectState: projectState,
+                            ),
                             interactionLocked: interactionLocked,
                             subtasksExpanded: _expandedTaskIds.contains(
                               task.id,
@@ -473,9 +535,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             onTap: () => context.push(
                               '${RoutePaths.taskManage}?id=${task.id}',
                             ),
-                            onDelete: () => ref
-                                .read(taskTimelineProviderProvider.notifier)
-                                .deleteTask(task.id),
+                            onDelete: () => _deleteAndUnassignTask(task.id),
                           ),
                         );
                       }, childCount: tasks.length),
@@ -528,6 +588,55 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     _recalculateExtraScrollSpace(hasTasks: true);
   }
 
+  Future<void> _deleteAndUnassignTask(String taskId) async {
+    final projectNotifier = ref.read(projectNotifierProvider.notifier);
+    final taskNotifier = ref.read(taskTimelineProviderProvider.notifier);
+    final originalProjectId = projectNotifier.projectIdForTaskId(taskId);
+    var unassigned = false;
+
+    try {
+      await projectNotifier.assignTaskToProject(
+        taskId: taskId,
+        projectId: null,
+      );
+      unassigned = true;
+      await taskNotifier.deleteTask(taskId);
+      debugPrint(
+        'TaskListView: deleted task $taskId and removed project assignment.',
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'TaskListView: failed to delete/unassign task $taskId: $error\n$stackTrace',
+      );
+      if (unassigned &&
+          originalProjectId != null &&
+          originalProjectId.trim().isNotEmpty) {
+        try {
+          await projectNotifier.assignTaskToProject(
+            taskId: taskId,
+            projectId: originalProjectId,
+          );
+          debugPrint(
+            'TaskListView: rollback restored assignment for task $taskId to project $originalProjectId.',
+          );
+        } catch (rollbackError, rollbackStackTrace) {
+          debugPrint(
+            'TaskListView: rollback failed for task $taskId: $rollbackError\n$rollbackStackTrace',
+          );
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete task. Please try again.'),
+        ),
+      );
+    }
+  }
+
   void _recalculateExtraScrollSpace({required bool hasTasks}) {
     if (!mounted) {
       return;
@@ -556,6 +665,62 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     if ((target - _extraScrollSpace).abs() > 1) {
       setState(() => _extraScrollSpace = target);
     }
+  }
+
+  String _topicLabelForTask({
+    required Task task,
+    required ProjectState projectState,
+  }) {
+    final projectId = _projectIdForTaskIdFromState(task.id, projectState);
+    final topic = task.topic.trim();
+    if (projectId == null || projectId.isEmpty) {
+      return topic;
+    }
+    Project? project;
+    for (final candidate in projectState.projects) {
+      if (candidate.id == projectId) {
+        project = candidate;
+        break;
+      }
+    }
+    if (project == null) {
+      return topic;
+    }
+    if (topic.isEmpty) {
+      return project.name;
+    }
+    return '${project.name} - $topic';
+  }
+
+  String? _projectIdForTaskIdFromState(
+    String taskId,
+    ProjectState projectState,
+  ) {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return null;
+    }
+    final directProjectId = projectState.taskProjectMap[normalizedTaskId];
+    if (directProjectId != null && directProjectId.trim().isNotEmpty) {
+      return directProjectId.trim();
+    }
+    final sourceTaskId = _sourceTaskIdFromOccurrenceId(normalizedTaskId);
+    if (sourceTaskId == null) {
+      return null;
+    }
+    final sourceProjectId = projectState.taskProjectMap[sourceTaskId];
+    if (sourceProjectId == null || sourceProjectId.trim().isEmpty) {
+      return null;
+    }
+    return sourceProjectId.trim();
+  }
+
+  String? _sourceTaskIdFromOccurrenceId(String taskId) {
+    final separatorIndex = taskId.lastIndexOf(_dailyOccurrenceSeparator);
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    return taskId.substring(0, separatorIndex);
   }
 }
 

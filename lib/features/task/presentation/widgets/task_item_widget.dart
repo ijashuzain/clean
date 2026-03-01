@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 class TaskItemWidget extends StatelessWidget {
   final Task task;
+  final String? topicLabel;
   final bool subtasksExpanded;
   final VoidCallback onToggleSubtasks;
   final VoidCallback onTaskToggle;
@@ -22,6 +23,7 @@ class TaskItemWidget extends StatelessWidget {
     required this.onSubTaskChanged,
     required this.onTap,
     required this.onDelete,
+    this.topicLabel,
     this.interactionLocked = false,
   });
 
@@ -31,6 +33,7 @@ class TaskItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveTopic = (topicLabel ?? task.topic).trim();
     final done = task.subtasks.where((item) => item.isCompleted).length;
     final total = task.subtasks.length;
     final hasTime =
@@ -149,11 +152,11 @@ class TaskItemWidget extends StatelessWidget {
                               ],
                             ],
                           ),
-                        if (task.topic.trim().isNotEmpty)
+                        if (effectiveTopic.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
-                              task.topic.toUpperCase(),
+                              effectiveTopic.toUpperCase(),
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     letterSpacing: 0.8,

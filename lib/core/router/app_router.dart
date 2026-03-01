@@ -6,10 +6,15 @@ import 'package:logit/features/auth/presentation/views/login_view.dart';
 import 'package:logit/features/auth/presentation/views/pin_auth_view.dart';
 import 'package:logit/features/auth/presentation/views/signup_view.dart';
 import 'package:logit/features/onboarding/presentation/views/onboarding_view.dart';
+import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
+import 'package:logit/features/subscription/presentation/views/subscription_view.dart';
 import 'package:logit/features/settings/presentation/views/change_pin_view.dart';
 import 'package:logit/features/splash/presentation/views/splash_view.dart';
+import 'package:logit/features/project/presentation/views/projects_view.dart';
+import 'package:logit/features/project/presentation/views/project_detail_view.dart';
 import 'package:logit/features/settings/presentation/views/settings_view.dart';
 import 'package:logit/features/task/presentation/views/task_list_view.dart';
+import 'package:logit/features/task/presentation/views/task_calendar_view.dart';
 import 'package:logit/features/task/presentation/views/task_manage_view.dart';
 import 'package:logit/features/task/presentation/views/task_reminders_view.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +35,9 @@ GoRouter appRouter(Ref ref) {
     refreshNotifier.value++;
   });
   ref.listen(authSessionNotifierProvider, (previous, next) {
+    refreshNotifier.value++;
+  });
+  ref.listen(subscriptionAccessNotifierProvider, (previous, next) {
     refreshNotifier.value++;
   });
 
@@ -66,8 +74,20 @@ GoRouter appRouter(Ref ref) {
         path: RoutePaths.taskManage,
         builder: (context, state) {
           final taskId = state.uri.queryParameters['id'];
-          return TaskManageView(taskId: taskId);
+          final projectId = state.uri.queryParameters['projectId'];
+          final lockProjectRaw = state.uri.queryParameters['lockProject'] ?? '';
+          final lockProject =
+              lockProjectRaw == '1' || lockProjectRaw.toLowerCase() == 'true';
+          return TaskManageView(
+            taskId: taskId,
+            preselectedProjectId: projectId,
+            lockProjectSelection: lockProject,
+          );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.taskCalendar,
+        builder: (context, state) => const TaskCalendarView(),
       ),
       GoRoute(
         path: RoutePaths.taskReminders,
@@ -78,6 +98,24 @@ GoRouter appRouter(Ref ref) {
           }
           return TaskRemindersView(args: args);
         },
+      ),
+      GoRoute(
+        path: RoutePaths.projects,
+        builder: (context, state) => const ProjectsView(),
+      ),
+      GoRoute(
+        path: RoutePaths.projectDetail,
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['id'] ?? '';
+          if (projectId.trim().isEmpty) {
+            return const ProjectsView();
+          }
+          return ProjectDetailView(projectId: projectId);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.subscription,
+        builder: (context, state) => const SubscriptionView(),
       ),
       GoRoute(
         path: RoutePaths.settings,
@@ -92,6 +130,9 @@ GoRouter appRouter(Ref ref) {
       final onboardingState = ref.read(onboardingStatusNotifierProvider);
       final pinState = ref.read(pinAuthSessionNotifierProvider);
       final authState = ref.read(authSessionNotifierProvider);
+      final shouldShowSubscriptionGate = ref.read(
+        shouldShowSubscriptionGateProvider,
+      );
       final location = state.matchedLocation;
 
       final goingSplash = location == RoutePaths.splash;
@@ -99,10 +140,15 @@ GoRouter appRouter(Ref ref) {
       final goingPin = location == RoutePaths.pinAuth;
       final goingAuth =
           location == RoutePaths.login || location == RoutePaths.signup;
+      final goingSubscription = location == RoutePaths.subscription;
       final goingProtected =
           location == RoutePaths.tasks ||
           location == RoutePaths.taskManage ||
+          location == RoutePaths.taskCalendar ||
           location == RoutePaths.taskReminders ||
+          location == RoutePaths.projects ||
+          location == RoutePaths.projectDetail ||
+          location == RoutePaths.subscription ||
           location == RoutePaths.settings ||
           location == RoutePaths.changePin;
 
@@ -124,6 +170,10 @@ GoRouter appRouter(Ref ref) {
 
       if (!pinState.isUnlocked) {
         return goingPin ? null : RoutePaths.pinAuth;
+      }
+
+      if (shouldShowSubscriptionGate) {
+        return goingSubscription ? null : RoutePaths.subscription;
       }
 
       if (goingSplash || goingOnboarding || goingPin || goingAuth) {

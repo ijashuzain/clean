@@ -1,8 +1,10 @@
 import 'package:logit/core/router/route_paths.dart';
+import 'package:logit/core/subscription/subscription_feature_flag_provider.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/theme/theme_mode_provider.dart';
 import 'package:logit/features/auth/presentation/providers/auth_session_provider/auth_session_provider.dart';
 import 'package:logit/features/auth/presentation/providers/pin_auth_session_provider/pin_auth_session_provider.dart';
+import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,10 @@ class SettingsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authSessionNotifierProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
+    final subscriptionFeatureEnabled = ref.watch(
+      subscriptionFeatureEnabledProvider,
+    );
+    final subscriptionState = ref.watch(subscriptionAccessNotifierProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = authState.user;
     final displayName = user.name.trim().isEmpty ? 'LogIt User' : user.name;
@@ -92,6 +98,45 @@ class SettingsView extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (subscriptionFeatureEnabled) ...[
+                    const _SectionTitle(text: 'Subscription'),
+                    _SurfaceCard(
+                      child: Column(
+                        children: [
+                          _ActionTile(
+                            icon: subscriptionState.isSubscribed
+                                ? Icons.workspace_premium_rounded
+                                : Icons.workspace_premium_outlined,
+                            title: subscriptionState.isSubscribed
+                                ? 'Pro Plan Active (Rs 60/month)'
+                                : 'Free Plan (View Upgrade)',
+                            onTap: () => context.push(RoutePaths.subscription),
+                          ),
+                          _divider(isDark),
+                          ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            title: Text(
+                              subscriptionState.isSubscribed
+                                  ? 'Unlimited task and reminder features are enabled.'
+                                  : 'Free plan limits: 3 tasks/day, 2 subtasks/task, 1 non-repeating reminder/task.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.color
+                                        ?.withValues(alpha: 0.8),
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const _SectionTitle(text: 'Appearance'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),

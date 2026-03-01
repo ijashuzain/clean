@@ -1,7 +1,11 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/widgets/custom_text_field.dart';
 import 'package:logit/core/widgets/primary_button.dart';
+import 'package:logit/features/project/domain/entities/project.dart';
+import 'package:logit/features/project/presentation/providers/project_provider.dart';
+import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
+import 'package:logit/features/task/domain/usecases/get_tasks_by_date_usecase/get_tasks_by_date_usecase.dart';
 import 'package:logit/features/task/presentation/providers/task_timeline_provider/task_timeline_provider.dart';
 import 'package:logit/features/task/presentation/views/task_reminders_view.dart';
 import 'package:flutter/material.dart';
@@ -12,14 +16,23 @@ import 'package:intl/intl.dart';
 
 class TaskManageView extends ConsumerStatefulWidget {
   final String? taskId;
+  final String? preselectedProjectId;
+  final bool lockProjectSelection;
 
-  const TaskManageView({super.key, this.taskId});
+  const TaskManageView({
+    super.key,
+    this.taskId,
+    this.preselectedProjectId,
+    this.lockProjectSelection = false,
+  });
 
   @override
   ConsumerState<TaskManageView> createState() => _TaskManageViewState();
 }
 
 class _TaskManageViewState extends ConsumerState<TaskManageView> {
+  static const String _dailyOccurrenceSeparator = '__occ__';
+
   final _titleController = TextEditingController();
   final _topicController = TextEditingController();
   final _emojiController = TextEditingController();
@@ -35,6 +48,8 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   bool _repeatsDaily = false;
   bool _loadingTask = false;
   bool _isReadOnlyCompletedPastTask = false;
+  String? _selectedProjectId;
+  bool _projectSelectionTouched = false;
 
   @override
   void initState() {
@@ -46,6 +61,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     _scheduledDate = widget.taskId == null && selectedDate.isBefore(today)
         ? today
         : selectedDate;
+    _selectedProjectId = widget.preselectedProjectId?.trim().isEmpty ?? true
+        ? null
+        : widget.preselectedProjectId!.trim();
+    if (_selectedProjectId != null) {
+      _projectSelectionTouched = true;
+    }
     _addSubTaskField();
     if (widget.taskId != null) {
       _prefillTask(widget.taskId!);
@@ -74,6 +95,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
 
     if (task != null) {
+      final assignedProjectId = ref
+          .read(projectNotifierProvider)
+          .taskProjectMap[task.id];
       _titleController.text = task.title;
       _topicController.text = task.topic;
       _emojiController.text = _containsEmojiRune(task.iconKey)
@@ -87,6 +111,8 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       _reminders = _normalizeTaskReminders(task);
       _repeatsDaily = task.repeatsDaily;
       _isReadOnlyCompletedPastTask = _isPreviousDayCompletedTask(task);
+      _selectedProjectId = assignedProjectId;
+      _projectSelectionTouched = false;
 
       for (final draft in _subTaskDrafts) {
         draft.controller.dispose();
@@ -111,6 +137,18 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
   }
 
   void _addSubTaskField() {
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
+    if (restrictionsEnabled &&
+        _subTaskDrafts.length >= SubscriptionPlanLimits.freeSubtasksPerTask) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows up to 2 subtasks')),
+        );
+      }
+      return;
+    }
     setState(
       () => _subTaskDrafts.add(
         _SubTaskDraft(
@@ -208,6 +246,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     }
     final startDate = _toDateOnly(_scheduledDate ?? DateTime.now());
     final endDate = _endDate == null ? null : _toDateOnly(_endDate!);
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
     final result = await context.push<List<TaskReminder>>(
       RoutePaths.taskReminders,
       extra: TaskRemindersArgs(
@@ -218,6 +259,10 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
         startDate: startDate,
         endDate: endDate,
         readOnly: _isReadOnlyCompletedPastTask,
+        maxReminderCount: restrictionsEnabled
+            ? SubscriptionPlanLimits.freeRemindersPerTask
+            : null,
+        allowRepeatingReminders: !restrictionsEnabled,
       ),
     );
     if (!mounted || result == null) {
@@ -277,7 +322,101 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       return;
     }
 
+    final restrictionsEnabled = ref.read(
+      subscriptionRestrictionsEnabledProvider,
+    );
     final sanitizedReminders = _sanitizeReminders(_reminders);
+    final validSubtaskCount = _subTaskDrafts
+        .where((draft) => draft.controller.text.trim().isNotEmpty)
+        .length;
+    if (restrictionsEnabled) {
+      if (_repeatsDaily) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Free plan does not support daily repeating tasks'),
+          ),
+        );
+        return;
+      }
+      if (_endDate != null &&
+          _toDateOnly(_endDate!).difference(normalizedDate).inDays >
+              SubscriptionPlanLimits.freeMaxEndDateDays) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Free plan allows end date up to 3 days from start date',
+            ),
+          ),
+        );
+        return;
+      }
+      if (validSubtaskCount > SubscriptionPlanLimits.freeSubtasksPerTask) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows up to 2 subtasks')),
+        );
+        return;
+      }
+      if (sanitizedReminders.length >
+          SubscriptionPlanLimits.freeRemindersPerTask) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows only 1 reminder')),
+        );
+        return;
+      }
+      if (sanitizedReminders.any((reminder) => reminder.repeatsDaily)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Free plan reminders cannot repeat daily'),
+          ),
+        );
+        return;
+      }
+
+      var failedToCheckDailyLimit = false;
+      String? dailyLimitErrorMessage;
+      final tasksByDateResult = await ref
+          .read(getTasksByDateUseCaseProvider)
+          .call(normalizedDate);
+      final exceededFreeTaskLimit = await tasksByDateResult.when(
+        success: (tasks) async {
+          final currentTaskId = widget.taskId;
+          final existingCount = tasks
+              .where((task) => task.id != currentTaskId)
+              .length;
+          final isAlreadyOnTargetDate =
+              currentTaskId != null &&
+              tasks.any((task) => task.id == currentTaskId);
+          final creatingNewTask = currentTaskId == null;
+          final countsAgainstTargetDate =
+              creatingNewTask || !isAlreadyOnTargetDate;
+          return countsAgainstTargetDate &&
+              existingCount >= SubscriptionPlanLimits.freeTasksPerDay;
+        },
+        failure: (failure) async {
+          failedToCheckDailyLimit = true;
+          dailyLimitErrorMessage = failure.message;
+          return false;
+        },
+      );
+      if (!mounted) {
+        return;
+      }
+      if (failedToCheckDailyLimit) {
+        if (dailyLimitErrorMessage != null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(dailyLimitErrorMessage!)));
+        }
+        return;
+      }
+      if (exceededFreeTaskLimit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Free plan allows 3 tasks per day')),
+        );
+        return;
+      }
+    }
+
     for (final reminder in sanitizedReminders) {
       final reminderDate = _toDateOnly(reminder.date);
       if (reminderDate.isBefore(normalizedDate)) {
@@ -350,6 +489,17 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
     );
 
     await ref.read(taskTimelineProviderProvider.notifier).saveTask(task);
+    final fallbackProjectId = widget.taskId == null
+        ? null
+        : ref
+              .read(projectNotifierProvider.notifier)
+              .projectIdForTaskId(widget.taskId!);
+    final projectIdForSave = _projectSelectionTouched
+        ? _selectedProjectId
+        : (_selectedProjectId ?? fallbackProjectId);
+    await ref
+        .read(projectNotifierProvider.notifier)
+        .assignTaskToProject(taskId: task.id, projectId: projectIdForSave);
     if (mounted) {
       context.pop();
     }
@@ -357,6 +507,37 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
 
   @override
   Widget build(BuildContext context) {
+    final restrictionsEnabled = ref.watch(
+      subscriptionRestrictionsEnabledProvider,
+    );
+    final projectState = ref.watch(projectNotifierProvider);
+    final projects = projectState.projects;
+    final effectiveSelectedProjectId =
+        _selectedProjectId ??
+        (widget.taskId == null
+            ? null
+            : _projectIdFromTaskMap(
+                taskId: widget.taskId!,
+                taskProjectMap: projectState.taskProjectMap,
+              ));
+    final selectableProjectIds = projects.map((project) => project.id).toSet();
+    Project? selectedProject;
+    if (effectiveSelectedProjectId != null) {
+      for (final project in projects) {
+        if (project.id == effectiveSelectedProjectId) {
+          selectedProject = project;
+          break;
+        }
+      }
+    }
+    final dropdownProjectValue =
+        effectiveSelectedProjectId != null &&
+            selectableProjectIds.contains(effectiveSelectedProjectId)
+        ? effectiveSelectedProjectId
+        : null;
+    final canEditProjectSelection =
+        !widget.lockProjectSelection && !_isReadOnlyCompletedPastTask;
+
     final startDateLabel = DateFormat(
       'EEE, d MMM yyyy',
     ).format(_scheduledDate ?? DateTime.now());
@@ -409,6 +590,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                 await ref
                     .read(taskTimelineProviderProvider.notifier)
                     .deleteTask(widget.taskId!);
+                await ref
+                    .read(projectNotifierProvider.notifier)
+                    .assignTaskToProject(
+                      taskId: widget.taskId!,
+                      projectId: null,
+                    );
                 if (!context.mounted) {
                   return;
                 }
@@ -478,6 +665,84 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                     textInputAction: TextInputAction.next,
                     readOnly: _isReadOnlyCompletedPastTask,
                   ),
+                  const SizedBox(height: 12),
+                  _sectionTitle('Project (optional)'),
+                  const SizedBox(height: 8),
+                  if (widget.lockProjectSelection)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).cardColor.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF2F333D)
+                              : const Color(0xFFE3E0D5),
+                        ),
+                      ),
+                      child: Text(
+                        selectedProject?.name ??
+                            (effectiveSelectedProjectId == null
+                                ? 'No project'
+                                : 'Selected project'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  else
+                    DropdownButtonFormField<String?>(
+                      key: ValueKey(
+                        'project-dropdown-$dropdownProjectValue-${projects.length}',
+                      ),
+                      initialValue: dropdownProjectValue,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('No project'),
+                        ),
+                        ...projects.map(
+                          (project) => DropdownMenuItem<String?>(
+                            value: project.id,
+                            child: Text(project.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: !canEditProjectSelection
+                          ? null
+                          : (value) => setState(() {
+                              _projectSelectionTouched = true;
+                              _selectedProjectId = value;
+                            }),
+                    ),
+                  if (!widget.lockProjectSelection &&
+                      canEditProjectSelection &&
+                      projects.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Create projects from Projects menu to organize tasks.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   _sectionTitle('Start & End Date'),
                   const SizedBox(height: 8),
@@ -592,6 +857,12 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                                   context,
                                 ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
                               ),
+                              if (restrictionsEnabled)
+                                Text(
+                                  'Free plan: 1 reminder, no daily repeat',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(fontSize: 11.8),
+                                ),
                             ],
                           ),
                         ),
@@ -637,9 +908,11 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                _endDate == null
-                                    ? 'Show this task every day until deleted'
-                                    : 'Show this task daily until end date',
+                                restrictionsEnabled
+                                    ? 'Available on Pro plan'
+                                    : (_endDate == null
+                                          ? 'Show this task every day until deleted'
+                                          : 'Show this task daily until end date'),
                                 style: Theme.of(
                                   context,
                                 ).textTheme.bodySmall?.copyWith(fontSize: 11.8),
@@ -651,7 +924,9 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
                           scale: 0.88,
                           child: Switch.adaptive(
                             value: _repeatsDaily,
-                            onChanged: _isReadOnlyCompletedPastTask
+                            onChanged:
+                                _isReadOnlyCompletedPastTask ||
+                                    restrictionsEnabled
                                 ? null
                                 : (value) => setState(() {
                                     _repeatsDaily = value;
@@ -933,6 +1208,34 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       cursor = cursor.add(const Duration(days: 1));
     }
     return false;
+  }
+
+  String? _projectIdFromTaskMap({
+    required String taskId,
+    required Map<String, String> taskProjectMap,
+  }) {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return null;
+    }
+
+    final directProjectId = taskProjectMap[normalizedTaskId];
+    if (directProjectId != null && directProjectId.trim().isNotEmpty) {
+      return directProjectId.trim();
+    }
+
+    final separatorIndex = normalizedTaskId.lastIndexOf(
+      _dailyOccurrenceSeparator,
+    );
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    final sourceTaskId = normalizedTaskId.substring(0, separatorIndex);
+    final sourceProjectId = taskProjectMap[sourceTaskId];
+    if (sourceProjectId == null || sourceProjectId.trim().isEmpty) {
+      return null;
+    }
+    return sourceProjectId.trim();
   }
 
   List<TaskReminder> _normalizeTaskReminders(Task task) {

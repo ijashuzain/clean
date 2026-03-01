@@ -7,6 +7,7 @@ class HiveInitializer {
     await Future.wait([
       Hive.openBox<dynamic>(HiveBoxNames.auth),
       Hive.openBox<dynamic>(HiveBoxNames.task),
+      Hive.openBox<dynamic>(HiveBoxNames.project),
       Hive.openBox<dynamic>(HiveBoxNames.settings),
     ]);
   }

@@ -22,6 +22,12 @@ class ErrorMessageFormatter {
     }
 
     final raw = error.toString().trim();
+    final normalizedRaw = raw.toLowerCase();
+    if (normalizedRaw.contains('socketexception') ||
+        normalizedRaw.contains('failed host lookup') ||
+        normalizedRaw.contains('no address associated with hostname')) {
+      return 'Unable to reach server. Check internet connection and server URL.';
+    }
     if (raw.isEmpty) {
       return fallback;
     }

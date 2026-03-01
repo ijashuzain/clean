@@ -1,6 +1,5 @@
-import 'package:logit/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:logit/features/task/presentation/widgets/task_date_card.dart';
 
 class DateSelectorStrip extends StatefulWidget {
   final DateTime selectedDate;
@@ -64,23 +63,7 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
         const spacing = 6.0;
         final cardWidth = (constraints.maxWidth - (spacing * 6)) / 7;
         final cardHeight = (cardWidth * 1.15).clamp(48.0, 62.0);
-        final dayFontSize = cardWidth < 36 ? 7.0 : 8.5;
-        final dateFontSize = cardWidth < 36
-            ? 12.0
-            : cardWidth < 42
-            ? 14.0
-            : 17.0;
-        final emojiCellSize = cardWidth < 36
-            ? 7.5
-            : cardWidth < 42
-            ? 8.5
-            : 9.5;
-        final emojiFontSize = cardWidth < 36
-            ? 5.0
-            : cardWidth < 42
-            ? 5.8
-            : 6.3;
-        final emojiGap = cardWidth < 42 ? 1.5 : 2.0;
+        final sizing = TaskDateCardSizing.fromCardWidth(cardWidth);
         final totalHeight = cardHeight + 21;
 
         return SizedBox(
@@ -101,15 +84,10 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
                 children: [
                   for (var index = 0; index < days.length; index++) ...[
                     _buildDayCard(
-                      context: context,
                       date: days[index],
                       cardWidth: cardWidth,
                       cardHeight: cardHeight,
-                      dayFontSize: dayFontSize,
-                      dateFontSize: dateFontSize,
-                      emojiCellSize: emojiCellSize,
-                      emojiFontSize: emojiFontSize,
-                      emojiGap: emojiGap,
+                      sizing: sizing,
                     ),
                     if (index != days.length - 1)
                       const SizedBox(width: spacing),
@@ -124,117 +102,24 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
   }
 
   Widget _buildDayCard({
-    required BuildContext context,
     required DateTime date,
     required double cardWidth,
     required double cardHeight,
-    required double dayFontSize,
-    required double dateFontSize,
-    required double emojiCellSize,
-    required double emojiFontSize,
-    required double emojiGap,
+    required TaskDateCardSizing sizing,
   }) {
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final selected =
-        date.year == widget.selectedDate.year &&
-        date.month == widget.selectedDate.month &&
-        date.day == widget.selectedDate.day;
-    final isToday = _sameDate(date, todayDate);
     final dayKey = _dateKey(date);
-    final emojis = (widget.dayEmojiMap[dayKey] ?? const <String>[])
-        .take(4)
-        .toList();
+    final emojis = widget.dayEmojiMap[dayKey] ?? const <String>[];
 
-    return SizedBox(
-      width: cardWidth,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () =>
-            widget.onDateSelected(DateTime(date.year, date.month, date.day)),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  DateFormat('EEE').format(date).toUpperCase(),
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
-                    fontSize: dayFontSize,
-                    color: isToday
-                        ? AppColors.accentGreen
-                        : Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.darkMutedText
-                        : const Color(0xFFB8B9BC),
-                  ),
-                ),
-                if (isToday) ...[
-                  const SizedBox(width: 3),
-                  Container(
-                    width: 4.5,
-                    height: 4.5,
-                    decoration: const BoxDecoration(
-                      color: AppColors.accentGreen,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: cardWidth,
-              height: cardHeight,
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.accentGold
-                    : Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: selected
-                      ? Colors.transparent
-                      : isToday
-                      ? AppColors.accentGreen
-                      : Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.darkBorder
-                      : const Color(0xFFE6E4DD),
-                  width: isToday ? 1.2 : 1,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Column(
-                children: [
-                  Text(
-                    DateFormat('d').format(date),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: dateFontSize,
-                      color: selected ? AppColors.brandText : null,
-                      height: 1.0,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  if (emojis.isNotEmpty)
-                    SizedBox(
-                      height: cardHeight * 0.32,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.topCenter,
-                        child: _buildEmojiCluster(
-                          emojis,
-                          cellSize: emojiCellSize,
-                          cellFontSize: emojiFontSize,
-                          cellGap: emojiGap,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return TaskDateCard(
+      date: date,
+      selectedDate: widget.selectedDate,
+      emojis: emojis,
+      cardWidth: cardWidth,
+      cardHeight: cardHeight,
+      sizing: sizing,
+      onTap: widget.onDateSelected,
+      showDayLabel: true,
+      inCurrentMonth: true,
     );
   }
 
@@ -269,123 +154,5 @@ class _DateSelectorStripState extends State<DateSelectorStrip> {
     final mm = date.month.toString().padLeft(2, '0');
     final dd = date.day.toString().padLeft(2, '0');
     return '$yyyy-$mm-$dd';
-  }
-
-  Widget _buildEmojiCluster(
-    List<String> emojis, {
-    required double cellSize,
-    required double cellFontSize,
-    required double cellGap,
-  }) {
-    final gap = SizedBox(width: cellGap);
-    switch (emojis.length) {
-      case 1:
-        return _emojiCell(
-          emojis[0],
-          cellSize: cellSize,
-          cellFontSize: cellFontSize,
-        );
-      case 2:
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _emojiCell(
-              emojis[0],
-              cellSize: cellSize,
-              cellFontSize: cellFontSize,
-            ),
-            gap,
-            _emojiCell(
-              emojis[1],
-              cellSize: cellSize,
-              cellFontSize: cellFontSize,
-            ),
-          ],
-        );
-      case 3:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _emojiCell(
-                  emojis[0],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-                gap,
-                _emojiCell(
-                  emojis[1],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-              ],
-            ),
-            SizedBox(height: cellGap),
-            _emojiCell(
-              emojis[2],
-              cellSize: cellSize,
-              cellFontSize: cellFontSize,
-            ),
-          ],
-        );
-      default:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _emojiCell(
-                  emojis[0],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-                gap,
-                _emojiCell(
-                  emojis[1],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-              ],
-            ),
-            SizedBox(height: cellGap),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _emojiCell(
-                  emojis[2],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-                gap,
-                _emojiCell(
-                  emojis[3],
-                  cellSize: cellSize,
-                  cellFontSize: cellFontSize,
-                ),
-              ],
-            ),
-          ],
-        );
-    }
-  }
-
-  Widget _emojiCell(
-    String emoji, {
-    required double cellSize,
-    required double cellFontSize,
-  }) {
-    return Container(
-      width: cellSize,
-      height: cellSize,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(cellSize * 0.36),
-      ),
-      alignment: Alignment.center,
-      child: Text(emoji, style: TextStyle(fontSize: cellFontSize)),
-    );
   }
 }
