@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logit/core/utils/status/status.dart';
 import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
 import 'package:logit/features/auth/domain/usecases/login_usecase/login_usecase.dart';
@@ -25,15 +26,24 @@ class LoginViewProvider extends _$LoginViewProvider {
 
   Future<void> login(LoginParams params) async {
     state = state.copyWith(loginStatus: Status.loading());
-    final result = await ref.read(loginUseCaseProvider).call(params);
-    result.when(
-      success: (user) {
-        state = state.copyWith(loginStatus: Status.success(), user: user);
-        ref.read(authSessionNotifierProvider.notifier).setSession(user);
-      },
-      failure: (failure) {
-        state = state.copyWith(loginStatus: Status.failure(failure.message));
-      },
-    );
+    try {
+      final result = await ref.read(loginUseCaseProvider).call(params);
+      result.when(
+        success: (user) {
+          state = state.copyWith(loginStatus: Status.success(), user: user);
+          ref.read(authSessionNotifierProvider.notifier).setSession(user);
+        },
+        failure: (failure) {
+          state = state.copyWith(loginStatus: Status.failure(failure.message));
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('LoginViewProvider.login error: $error\n$stackTrace');
+      state = state.copyWith(
+        loginStatus: const Status.failure(
+          'Unable to login. Please check your connection and try again.',
+        ),
+      );
+    }
   }
 }

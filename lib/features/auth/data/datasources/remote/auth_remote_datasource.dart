@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:logit/core/supabase/supabase_initializer.dart';
 import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,8 @@ abstract class AuthRemoteDataSource {
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
+  static const Duration _authTimeout = Duration(seconds: 20);
+
   @override
   bool get isAvailable => SupabaseInitializer.isInitialized;
 
@@ -37,10 +41,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception(SupabaseInitializer.missingConfigMessage);
     }
 
-    final response = await client.auth.signInWithPassword(
-      email: email.trim(),
-      password: password,
-    );
+    final response = await client.auth
+        .signInWithPassword(email: email.trim(), password: password)
+        .timeout(_authTimeout);
     final user = response.user;
     if (user == null) {
       throw Exception('Unable to login. Please try again.');
@@ -58,11 +61,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final trimmedName = name.trim();
     final normalizedEmail = email.trim();
 
-    final response = await client.auth.signUp(
-      email: normalizedEmail,
-      password: password,
-      data: <String, dynamic>{'name': trimmedName},
-    );
+    final response = await client.auth
+        .signUp(
+          email: normalizedEmail,
+          password: password,
+          data: <String, dynamic>{'name': trimmedName},
+        )
+        .timeout(_authTimeout);
 
     User? user = response.user;
     if (user == null) {
@@ -70,10 +75,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
 
     if (response.session == null) {
-      final loginResponse = await client.auth.signInWithPassword(
-        email: normalizedEmail,
-        password: password,
-      );
+      final loginResponse = await client.auth
+          .signInWithPassword(email: normalizedEmail, password: password)
+          .timeout(_authTimeout);
       user = loginResponse.user ?? user;
     }
 

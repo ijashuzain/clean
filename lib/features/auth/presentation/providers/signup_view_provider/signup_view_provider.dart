@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logit/core/utils/status/status.dart';
 import 'package:logit/features/auth/domain/entities/app_user/app_user.dart';
 import 'package:logit/features/auth/domain/usecases/signup_usecase/signup_usecase.dart';
@@ -25,15 +26,24 @@ class SignupViewProvider extends _$SignupViewProvider {
 
   Future<void> signup(SingupParams params) async {
     state = state.copyWith(signupStatus: Status.loading());
-    final result = await ref.read(signupUseCaseProvider).call(params);
-    result.when(
-      success: (user) {
-        state = state.copyWith(signupStatus: Status.success(), user: user);
-        ref.read(authSessionNotifierProvider.notifier).setSession(user);
-      },
-      failure: (failure) {
-        state = state.copyWith(signupStatus: Status.failure(failure.message));
-      },
-    );
+    try {
+      final result = await ref.read(signupUseCaseProvider).call(params);
+      result.when(
+        success: (user) {
+          state = state.copyWith(signupStatus: Status.success(), user: user);
+          ref.read(authSessionNotifierProvider.notifier).setSession(user);
+        },
+        failure: (failure) {
+          state = state.copyWith(signupStatus: Status.failure(failure.message));
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('SignupViewProvider.signup error: $error\n$stackTrace');
+      state = state.copyWith(
+        signupStatus: const Status.failure(
+          'Unable to create account. Please check your connection and try again.',
+        ),
+      );
+    }
   }
 }
