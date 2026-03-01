@@ -11,6 +11,13 @@ class ProjectsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(projectNotifierProvider);
+    final taskCounts = <String, int>{};
+    for (final projectId in state.taskProjectMap.values) {
+      if (projectId.trim().isEmpty) {
+        continue;
+      }
+      taskCounts[projectId] = (taskCounts[projectId] ?? 0) + 1;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -78,9 +85,7 @@ class ProjectsView extends ConsumerWidget {
                       const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final project = state.projects[index];
-                    final assignedCount = state.taskProjectMap.values
-                        .where((id) => id == project.id)
-                        .length;
+                    final assignedCount = taskCounts[project.id] ?? 0;
                     return Material(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(14),

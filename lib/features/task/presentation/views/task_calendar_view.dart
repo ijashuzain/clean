@@ -16,6 +16,7 @@ class TaskCalendarView extends ConsumerStatefulWidget {
 
 class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
   static const int _initialPage = 12000;
+  static const int _cacheMonthRadius = 6;
 
   late final DateTime _anchorMonth;
   late final PageController _pageController;
@@ -76,6 +77,7 @@ class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
             scrollDirection: Axis.vertical,
             onPageChanged: (page) {
               final month = _monthForPage(page);
+              _evictOutsideWindow(month);
               _prefetchAround(month);
             },
             itemBuilder: (context, page) {
@@ -139,6 +141,7 @@ class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
   }
 
   Future<void> _prefetchAround(DateTime centerMonth) async {
+    _evictOutsideWindow(centerMonth);
     final months = <DateTime>[
       DateTime(centerMonth.year, centerMonth.month - 1),
       DateTime(centerMonth.year, centerMonth.month),
@@ -166,30 +169,33 @@ class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
       _loadingMonthKeys.add(monthKey);
     }
 
-    final monthStart = DateTime(month.year, month.month, 1);
-    final monthEnd = DateTime(month.year, month.month + 1, 0);
-    final result = await ref
-        .read(getEmojiPreviewUseCaseProvider)
-        .call(EmojiPreviewParams(from: monthStart, to: monthEnd));
+    try {
+      final monthStart = DateTime(month.year, month.month, 1);
+      final monthEnd = DateTime(month.year, month.month + 1, 0);
+      final result = await ref
+          .read(getEmojiPreviewUseCaseProvider)
+          .call(EmojiPreviewParams(from: monthStart, to: monthEnd));
 
-    result.when(
-      success: (emojiMap) {
-        _dayEmojiMap.addAll(emojiMap);
-        _loadedMonthKeys.add(monthKey);
-      },
-      failure: (failure) {
-        if (!mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(failure.message)));
-      },
-    );
-
-    _loadingMonthKeys.remove(monthKey);
-    if (mounted) {
-      setState(() {});
+      result.when(
+        success: (emojiMap) {
+          _dayEmojiMap.addAll(emojiMap);
+          _loadedMonthKeys.add(monthKey);
+        },
+        failure: (failure) {
+          if (!mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(failure.message)));
+        },
+      );
+    } finally {
+      _loadingMonthKeys.remove(monthKey);
+      if (mounted) {
+        _evictOutsideWindow(_currentCenterMonth());
+        setState(() {});
+      }
     }
   }
 
@@ -206,6 +212,42 @@ class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
     final yyyy = date.year.toString().padLeft(4, '0');
     final mm = date.month.toString().padLeft(2, '0');
     return '$yyyy-$mm';
+  }
+
+  DateTime _currentCenterMonth() {
+    if (_pageController.hasClients) {
+      final page = _pageController.page?.round() ?? _initialPage;
+      return _monthForPage(page);
+    }
+    return DateTime(_selectedDate.year, _selectedDate.month);
+  }
+
+  void _evictOutsideWindow(DateTime centerMonth) {
+    final allowedMonthKeys = <String>{};
+    for (
+      var offset = -_cacheMonthRadius;
+      offset <= _cacheMonthRadius;
+      offset++
+    ) {
+      allowedMonthKeys.add(
+        _monthKey(DateTime(centerMonth.year, centerMonth.month + offset)),
+      );
+    }
+    final retainedMonthKeys = <String>{
+      ...allowedMonthKeys,
+      ..._loadingMonthKeys,
+    };
+
+    _loadedMonthKeys.removeWhere(
+      (monthKey) => !retainedMonthKeys.contains(monthKey),
+    );
+    _dayEmojiMap.removeWhere((dateKey, _) {
+      if (dateKey.length < 7) {
+        return true;
+      }
+      final monthKey = dateKey.substring(0, 7);
+      return !retainedMonthKeys.contains(monthKey);
+    });
   }
 }
 

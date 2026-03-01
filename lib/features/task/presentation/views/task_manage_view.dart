@@ -1,6 +1,7 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/widgets/custom_text_field.dart';
 import 'package:logit/core/widgets/primary_button.dart';
+import 'package:logit/features/project/domain/entities/project.dart';
 import 'package:logit/features/project/presentation/providers/project_provider.dart';
 import 'package:logit/features/subscription/presentation/providers/subscription_access_provider.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
@@ -30,6 +31,8 @@ class TaskManageView extends ConsumerStatefulWidget {
 }
 
 class _TaskManageViewState extends ConsumerState<TaskManageView> {
+  static const String _dailyOccurrenceSeparator = '__occ__';
+
   final _titleController = TextEditingController();
   final _topicController = TextEditingController();
   final _emojiController = TextEditingController();
@@ -513,15 +516,20 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
         _selectedProjectId ??
         (widget.taskId == null
             ? null
-            : ref
-                  .read(projectNotifierProvider.notifier)
-                  .projectIdForTaskId(widget.taskId!));
+            : _projectIdFromTaskMap(
+                taskId: widget.taskId!,
+                taskProjectMap: projectState.taskProjectMap,
+              ));
     final selectableProjectIds = projects.map((project) => project.id).toSet();
-    final selectedProject = effectiveSelectedProjectId == null
-        ? null
-        : ref
-              .read(projectNotifierProvider.notifier)
-              .projectById(effectiveSelectedProjectId);
+    Project? selectedProject;
+    if (effectiveSelectedProjectId != null) {
+      for (final project in projects) {
+        if (project.id == effectiveSelectedProjectId) {
+          selectedProject = project;
+          break;
+        }
+      }
+    }
     final dropdownProjectValue =
         effectiveSelectedProjectId != null &&
             selectableProjectIds.contains(effectiveSelectedProjectId)
@@ -1200,6 +1208,34 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
       cursor = cursor.add(const Duration(days: 1));
     }
     return false;
+  }
+
+  String? _projectIdFromTaskMap({
+    required String taskId,
+    required Map<String, String> taskProjectMap,
+  }) {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return null;
+    }
+
+    final directProjectId = taskProjectMap[normalizedTaskId];
+    if (directProjectId != null && directProjectId.trim().isNotEmpty) {
+      return directProjectId.trim();
+    }
+
+    final separatorIndex = normalizedTaskId.lastIndexOf(
+      _dailyOccurrenceSeparator,
+    );
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    final sourceTaskId = normalizedTaskId.substring(0, separatorIndex);
+    final sourceProjectId = taskProjectMap[sourceTaskId];
+    if (sourceProjectId == null || sourceProjectId.trim().isEmpty) {
+      return null;
+    }
+    return sourceProjectId.trim();
   }
 
   List<TaskReminder> _normalizeTaskReminders(Task task) {

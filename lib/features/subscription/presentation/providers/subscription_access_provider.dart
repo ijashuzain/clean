@@ -83,7 +83,9 @@ class SubscriptionPlanLimits {
 class SubscriptionAccessNotifier
     extends StateNotifier<SubscriptionAccessState> {
   final Ref _ref;
-  final Box<dynamic> _settingsBox = Hive.box<dynamic>(HiveBoxNames.settings);
+  static final Box<dynamic> _settingsBox = Hive.box<dynamic>(
+    HiveBoxNames.settings,
+  );
 
   SubscriptionAccessNotifier(this._ref)
     : super(
@@ -110,9 +112,10 @@ class SubscriptionAccessNotifier
     if (normalizedUserId.isEmpty) {
       return false;
     }
-    final value = Hive.box<dynamic>(
-      HiveBoxNames.settings,
-    ).get(_subscribedKeyForUser(normalizedUserId), defaultValue: false);
+    final value = _settingsBox.get(
+      _subscribedKeyForUser(normalizedUserId),
+      defaultValue: false,
+    );
     return value is bool ? value : false;
   }
 

@@ -62,7 +62,7 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
           ),
           title: const Text('Reminders'),
           actions: [
-            if (!widget.args.readOnly)
+            if (!widget.args.readOnly && !_isAtMaxReminders)
               IconButton(
                 tooltip: 'Add reminder',
                 onPressed: _addReminder,
@@ -197,11 +197,12 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
   Future<void> _addReminder() async {
     final maxReminderCount = widget.args.maxReminderCount;
     if (maxReminderCount != null && _reminders.length >= maxReminderCount) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('You can only add up to $maxReminderCount reminder(s)'),
-        ),
-      );
+      final message = maxReminderCount == 0
+          ? 'Reminders are disabled for this task.'
+          : 'You can only add up to $maxReminderCount reminder(s)';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
     final reminder = await _openEditor();
@@ -344,6 +345,16 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
                       onChanged: (value) {
                         setModalState(() => repeatsDaily = value);
                       },
+                    )
+                  else if (repeatsDaily)
+                    SwitchListTile.adaptive(
+                      value: repeatsDaily,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Repeat daily'),
+                      subtitle: const Text(
+                        'This reminder will continue repeating but cannot be changed',
+                      ),
+                      onChanged: null,
                     ),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -485,13 +496,21 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
   }
 
   String _emptyStateHintText() {
+    final maxReminderCount = widget.args.maxReminderCount;
     if (widget.args.allowRepeatingReminders) {
+      if (maxReminderCount == 1) {
+        return 'Add one reminder with optional daily repeat.';
+      }
       return 'Add one or more reminders with optional daily repeat.';
     }
-    final maxReminderCount = widget.args.maxReminderCount;
     if (maxReminderCount == null || maxReminderCount > 1) {
       return 'Add one or more reminders without daily repeat.';
     }
     return 'Add one reminder without daily repeat.';
+  }
+
+  bool get _isAtMaxReminders {
+    final maxReminderCount = widget.args.maxReminderCount;
+    return maxReminderCount != null && _reminders.length >= maxReminderCount;
   }
 }

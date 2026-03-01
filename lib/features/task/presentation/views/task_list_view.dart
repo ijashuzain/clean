@@ -1,6 +1,7 @@
 import 'package:logit/core/router/route_paths.dart';
 import 'package:logit/core/theme/app_colors.dart';
 import 'package:logit/core/widgets/brand_logo.dart';
+import 'package:logit/features/project/domain/entities/project.dart';
 import 'package:logit/features/project/presentation/providers/project_provider.dart';
 import 'package:logit/features/task/data/repositories/task_repository_impl/task_repository_impl.dart';
 import 'package:logit/features/task/domain/entities/task/task.dart';
@@ -22,6 +23,7 @@ class TaskListView extends ConsumerStatefulWidget {
 class _TaskListViewState extends ConsumerState<TaskListView> {
   static const double _timelineTopInset = 8;
   static const double _tasksTopInset = 12;
+  static const String _dailyOccurrenceSeparator = '__occ__';
 
   final Set<String> _expandedTaskIds = <String>{};
   final ScrollController _taskScrollController = ScrollController();
@@ -42,6 +44,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(taskTimelineProviderProvider);
+    final projectState = ref.watch(projectNotifierProvider);
     final isSyncing = ref.watch(taskSyncStatusProvider).valueOrNull ?? false;
 
     ref.listen(taskTimelineProviderProvider, (previous, next) {
@@ -331,6 +334,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                     child: _buildTimelineSection(
                       context,
                       visibleTasks,
+                      projectState: projectState,
                       emptyTitle: emptyTitle,
                     ),
                   ),
@@ -360,6 +364,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   Widget _buildTimelineSection(
     BuildContext context,
     List<Task> tasks, {
+    required ProjectState projectState,
     required String emptyTitle,
   }) {
     return Stack(
@@ -500,7 +505,10 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                           },
                           child: TaskItemWidget(
                             task: task,
-                            topicLabel: _topicLabelForTask(task),
+                            topicLabel: _topicLabelForTask(
+                              task: task,
+                              projectState: projectState,
+                            ),
                             interactionLocked: interactionLocked,
                             subtasksExpanded: _expandedTaskIds.contains(
                               task.id,
@@ -581,10 +589,52 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   }
 
   Future<void> _deleteAndUnassignTask(String taskId) async {
-    await ref.read(taskTimelineProviderProvider.notifier).deleteTask(taskId);
-    await ref
-        .read(projectNotifierProvider.notifier)
-        .assignTaskToProject(taskId: taskId, projectId: null);
+    final projectNotifier = ref.read(projectNotifierProvider.notifier);
+    final taskNotifier = ref.read(taskTimelineProviderProvider.notifier);
+    final originalProjectId = projectNotifier.projectIdForTaskId(taskId);
+    var unassigned = false;
+
+    try {
+      await projectNotifier.assignTaskToProject(
+        taskId: taskId,
+        projectId: null,
+      );
+      unassigned = true;
+      await taskNotifier.deleteTask(taskId);
+      debugPrint(
+        'TaskListView: deleted task $taskId and removed project assignment.',
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'TaskListView: failed to delete/unassign task $taskId: $error\n$stackTrace',
+      );
+      if (unassigned &&
+          originalProjectId != null &&
+          originalProjectId.trim().isNotEmpty) {
+        try {
+          await projectNotifier.assignTaskToProject(
+            taskId: taskId,
+            projectId: originalProjectId,
+          );
+          debugPrint(
+            'TaskListView: rollback restored assignment for task $taskId to project $originalProjectId.',
+          );
+        } catch (rollbackError, rollbackStackTrace) {
+          debugPrint(
+            'TaskListView: rollback failed for task $taskId: $rollbackError\n$rollbackStackTrace',
+          );
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete task. Please try again.'),
+        ),
+      );
+    }
   }
 
   void _recalculateExtraScrollSpace({required bool hasTasks}) {
@@ -617,17 +667,22 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     }
   }
 
-  String _topicLabelForTask(Task task) {
-    final projectId = ref
-        .read(projectNotifierProvider.notifier)
-        .projectIdForTaskId(task.id);
+  String _topicLabelForTask({
+    required Task task,
+    required ProjectState projectState,
+  }) {
+    final projectId = _projectIdForTaskIdFromState(task.id, projectState);
     final topic = task.topic.trim();
     if (projectId == null || projectId.isEmpty) {
       return topic;
     }
-    final project = ref
-        .read(projectNotifierProvider.notifier)
-        .projectById(projectId);
+    Project? project;
+    for (final candidate in projectState.projects) {
+      if (candidate.id == projectId) {
+        project = candidate;
+        break;
+      }
+    }
     if (project == null) {
       return topic;
     }
@@ -635,6 +690,37 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
       return project.name;
     }
     return '${project.name} - $topic';
+  }
+
+  String? _projectIdForTaskIdFromState(
+    String taskId,
+    ProjectState projectState,
+  ) {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return null;
+    }
+    final directProjectId = projectState.taskProjectMap[normalizedTaskId];
+    if (directProjectId != null && directProjectId.trim().isNotEmpty) {
+      return directProjectId.trim();
+    }
+    final sourceTaskId = _sourceTaskIdFromOccurrenceId(normalizedTaskId);
+    if (sourceTaskId == null) {
+      return null;
+    }
+    final sourceProjectId = projectState.taskProjectMap[sourceTaskId];
+    if (sourceProjectId == null || sourceProjectId.trim().isEmpty) {
+      return null;
+    }
+    return sourceProjectId.trim();
+  }
+
+  String? _sourceTaskIdFromOccurrenceId(String taskId) {
+    final separatorIndex = taskId.lastIndexOf(_dailyOccurrenceSeparator);
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    return taskId.substring(0, separatorIndex);
   }
 }
 

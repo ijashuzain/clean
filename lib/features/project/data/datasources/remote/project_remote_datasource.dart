@@ -149,6 +149,39 @@ class ProjectRemoteDataSource {
     );
 
     try {
+      await client!.rpc(
+        'delete_project_and_tasks',
+        params: {'user_id': userId!, 'project_id': projectId},
+      );
+      return;
+    } catch (error, stackTrace) {
+      if (!_isMissingDeleteProjectRpc(error)) {
+        _logRemoteFailure(
+          operation: 'deleteProject',
+          userId: userId,
+          hasClient: client != null,
+          error: error,
+          stackTrace: stackTrace,
+        );
+        throw ProjectRemoteDataSourceException(
+          operation: 'deleteProject',
+          message: 'Failed to delete project $projectId',
+          userId: userId,
+          hasClient: client != null,
+          cause: error,
+          stackTrace: stackTrace,
+        );
+      }
+      debugPrint(
+        'ProjectRemoteDataSource.deleteProject RPC not found; '
+        'falling back to sequential deletes with partial-failure risk.',
+      );
+    }
+
+    try {
+      // Fallback path when RPC is unavailable. This is not atomic: a failure
+      // between the two statements can leave task-project rows removed while
+      // the project row still exists.
       await client!
           .from(_taskProjectsTable)
           .delete()
@@ -176,6 +209,25 @@ class ProjectRemoteDataSource {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  bool _isMissingDeleteProjectRpc(Object error) {
+    if (error is! PostgrestException) {
+      return false;
+    }
+    final code = (error.code ?? '').toLowerCase();
+    final message = [
+      error.message,
+      error.details,
+      error.hint,
+    ].whereType<String>().join(' ').toLowerCase();
+
+    if (code == 'pgrst202') {
+      return true;
+    }
+    return message.contains('delete_project_and_tasks') &&
+        (message.contains('could not find') ||
+            message.contains('does not exist'));
   }
 
   Future<void> assignTaskToProject({

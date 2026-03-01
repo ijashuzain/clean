@@ -23,6 +23,10 @@ class ProjectDetailView extends ConsumerStatefulWidget {
 class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
   static const double _timelineTopInset = 8;
   static const double _tasksTopInset = 12;
+  static final RegExp _emojiRegex = RegExp(
+    r'[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]',
+    unicode: true,
+  );
 
   final Set<String> _expandedTaskIds = <String>{};
   Map<String, List<String>> _projectWeekEmojiMap =
@@ -115,23 +119,17 @@ class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
       ),
-      floatingActionButton: GestureDetector(
-        onTap: () => context.push(
-          '${RoutePaths.taskManage}?projectId=${project.id}&lockProject=true',
-        ),
-        child: Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x16000000),
-                blurRadius: 10,
-                offset: Offset(0, 3),
-              ),
-            ],
+      floatingActionButton: Semantics(
+        label: 'Add task',
+        button: true,
+        child: FloatingActionButton(
+          heroTag: 'project-detail-add-task',
+          tooltip: 'Add task',
+          backgroundColor: Colors.white.withValues(alpha: 0.9),
+          elevation: 3,
+          shape: const CircleBorder(),
+          onPressed: () => context.push(
+            '${RoutePaths.taskManage}?projectId=${project.id}&lockProject=true',
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -436,7 +434,11 @@ class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
   }
 
   bool _isEmoji(String value) {
-    return value.trim().isNotEmpty && value.runes.any((rune) => rune > 127);
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    return _emojiRegex.hasMatch(trimmed);
   }
 
   DateTime _toDateOnly(DateTime date) {
