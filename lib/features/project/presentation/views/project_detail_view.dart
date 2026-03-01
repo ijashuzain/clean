@@ -40,7 +40,19 @@ class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
       next,
     ) {
       final previousDate = previous?.selectedDate;
-      if (previousDate == null || !_sameDate(previousDate, next.selectedDate)) {
+      final selectedDateChanged =
+          previousDate == null || !_sameDate(previousDate, next.selectedDate);
+      final previousTaskSignature = previous == null
+          ? ''
+          : _taskSignatureForProject(
+              tasks: previous.tasks,
+              selectedDate: previous.selectedDate,
+            );
+      final nextTaskSignature = _taskSignatureForProject(
+        tasks: next.tasks,
+        selectedDate: next.selectedDate,
+      );
+      if (selectedDateChanged || previousTaskSignature != nextTaskSignature) {
         _loadProjectWeekEmojiMap(forDate: next.selectedDate);
       }
     });
@@ -331,8 +343,13 @@ class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
       Duration(days: selectedDate.weekday - 1),
     );
     final projectState = ref.read(projectNotifierProvider);
+    final taskState = ref.read(taskTimelineProviderProvider);
+    final taskSignature = _taskSignatureForProject(
+      tasks: taskState.tasks,
+      selectedDate: selectedDate,
+    );
     final weekSignature =
-        '${_dateKey(weekStart)}::${_projectMappingSignature(projectState.taskProjectMap)}';
+        '${_dateKey(weekStart)}::${_projectMappingSignature(projectState.taskProjectMap)}::$taskSignature';
     if (_lastWeekSignature == weekSignature) {
       return;
     }
@@ -387,6 +404,35 @@ class _ProjectDetailViewState extends ConsumerState<ProjectDetailView> {
             .toList(growable: true)
           ..sort();
     return taskIds.join('|');
+  }
+
+  String _taskSignatureForProject({
+    required List<Task> tasks,
+    required DateTime selectedDate,
+  }) {
+    final selectedDateOnly = _toDateOnly(selectedDate);
+    final weekStart = selectedDateOnly.subtract(
+      Duration(days: selectedDateOnly.weekday - 1),
+    );
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final projectNotifier = ref.read(projectNotifierProvider.notifier);
+    final entries = <String>[];
+
+    for (final task in tasks) {
+      final taskDate = _toDateOnly(task.scheduledAt);
+      if (taskDate.isBefore(weekStart) || taskDate.isAfter(weekEnd)) {
+        continue;
+      }
+      final projectId = projectNotifier.projectIdForTaskId(task.id);
+      if (projectId != widget.projectId) {
+        continue;
+      }
+      entries.add(
+        '${task.id}|${_dateKey(taskDate)}|${task.iconKey.trim()}|${task.updatedAt.toIso8601String()}',
+      );
+    }
+    entries.sort();
+    return entries.join('::');
   }
 
   bool _isEmoji(String value) {

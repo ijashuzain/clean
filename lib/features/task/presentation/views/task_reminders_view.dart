@@ -18,9 +18,11 @@ class TaskRemindersArgs {
     required this.startDate,
     required this.endDate,
     required this.readOnly,
-    this.maxReminderCount,
+    int? maxReminderCount,
     this.allowRepeatingReminders = true,
-  });
+  }) : maxReminderCount = maxReminderCount == null
+           ? null
+           : (maxReminderCount < 0 ? 0 : maxReminderCount);
 }
 
 class TaskRemindersView extends StatefulWidget {
@@ -110,9 +112,7 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
                               if (!widget.args.readOnly) ...[
                                 const SizedBox(height: 6),
                                 Text(
-                                  widget.args.allowRepeatingReminders
-                                      ? 'Add one or more reminders with optional daily repeat.'
-                                      : 'Add one reminder without daily repeat.',
+                                  _emptyStateHintText(),
                                   textAlign: TextAlign.center,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
@@ -240,9 +240,10 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
     final now = DateTime.now();
     var selectedDate = _toDateOnly(initial?.date ?? widget.args.startDate);
     var selectedMinute = initial?.minuteOfDay;
-    var repeatsDaily = widget.args.allowRepeatingReminders
-        ? (initial?.repeatsDaily ?? false)
-        : false;
+    var repeatsDaily = initial?.repeatsDaily ?? false;
+    if (initial == null && !widget.args.allowRepeatingReminders) {
+      repeatsDaily = false;
+    }
 
     return showModalBottomSheet<TaskReminder>(
       context: context,
@@ -481,5 +482,16 @@ class _TaskRemindersViewState extends State<TaskRemindersView> {
   String _formatMinute(int minuteOfDay) {
     final time = TimeOfDay(hour: minuteOfDay ~/ 60, minute: minuteOfDay % 60);
     return time.format(context);
+  }
+
+  String _emptyStateHintText() {
+    if (widget.args.allowRepeatingReminders) {
+      return 'Add one or more reminders with optional daily repeat.';
+    }
+    final maxReminderCount = widget.args.maxReminderCount;
+    if (maxReminderCount == null || maxReminderCount > 1) {
+      return 'Add one or more reminders without daily repeat.';
+    }
+    return 'Add one reminder without daily repeat.';
   }
 }

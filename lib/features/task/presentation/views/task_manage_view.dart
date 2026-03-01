@@ -380,8 +380,13 @@ class _TaskManageViewState extends ConsumerState<TaskManageView> {
           final existingCount = tasks
               .where((task) => task.id != currentTaskId)
               .length;
+          final isAlreadyOnTargetDate =
+              currentTaskId != null &&
+              tasks.any((task) => task.id == currentTaskId);
           final creatingNewTask = currentTaskId == null;
-          return creatingNewTask &&
+          final countsAgainstTargetDate =
+              creatingNewTask || !isAlreadyOnTargetDate;
+          return countsAgainstTargetDate &&
               existingCount >= SubscriptionPlanLimits.freeTasksPerDay;
         },
         failure: (failure) async {

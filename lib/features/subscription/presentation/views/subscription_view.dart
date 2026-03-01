@@ -237,10 +237,6 @@ class _PlanComparisonTable extends StatelessWidget {
       _FeatureRowData('Max end-date range', '3 days', 'Flexible'),
     ];
 
-    final mutedTextColor = Theme.of(
-      context,
-    ).textTheme.bodyMedium?.color?.withValues(alpha: 0.72);
-
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
@@ -261,15 +257,6 @@ class _PlanComparisonTable extends StatelessWidget {
               ],
             );
           }),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Text(
-              'Billing integration will be connected later. Current buttons are temporary for testing.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: mutedTextColor),
-            ),
-          ),
         ],
       ),
     );

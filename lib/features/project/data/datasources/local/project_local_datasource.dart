@@ -20,9 +20,13 @@ class ProjectLocalDataSource {
   final Box<dynamic> _box = Hive.box<dynamic>(HiveBoxNames.project);
 
   Future<ProjectLocalSnapshot> readSnapshot() async {
-    final rawProjects =
-        _box.get(HiveProjectKeys.projects, defaultValue: <dynamic>[])
-            as List<dynamic>;
+    final rawProjectsValue = _box.get(
+      HiveProjectKeys.projects,
+      defaultValue: <dynamic>[],
+    );
+    final rawProjects = rawProjectsValue is List
+        ? rawProjectsValue
+        : const <dynamic>[];
     final projects = <Project>[];
     for (final item in rawProjects) {
       if (item is! Map) {
@@ -41,12 +45,13 @@ class ProjectLocalDataSource {
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );
 
-    final rawTaskProjectMap =
-        _box.get(
-              HiveProjectKeys.taskProjectMap,
-              defaultValue: <dynamic, dynamic>{},
-            )
-            as Map<dynamic, dynamic>;
+    final rawTaskProjectMapValue = _box.get(
+      HiveProjectKeys.taskProjectMap,
+      defaultValue: <dynamic, dynamic>{},
+    );
+    final rawTaskProjectMap = rawTaskProjectMapValue is Map
+        ? rawTaskProjectMapValue
+        : const <dynamic, dynamic>{};
     final taskProjectMap = <String, String>{};
     for (final entry in rawTaskProjectMap.entries) {
       final taskId = entry.key.toString().trim();
@@ -57,7 +62,8 @@ class ProjectLocalDataSource {
       taskProjectMap[taskId] = projectId;
     }
 
-    final syncedUserId = _box.get(HiveProjectKeys.syncedUserId) as String?;
+    final syncedUserIdValue = _box.get(HiveProjectKeys.syncedUserId);
+    final syncedUserId = syncedUserIdValue is String ? syncedUserIdValue : null;
     final normalizedSyncedUserId =
         syncedUserId == null || syncedUserId.trim().isEmpty
         ? null

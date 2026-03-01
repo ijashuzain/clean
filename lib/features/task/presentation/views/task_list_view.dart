@@ -493,15 +493,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                                 ) ??
                                 false;
                             if (shouldDelete) {
-                              await ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(task.id);
-                              await ref
-                                  .read(projectNotifierProvider.notifier)
-                                  .assignTaskToProject(
-                                    taskId: task.id,
-                                    projectId: null,
-                                  );
+                              await _deleteAndUnassignTask(task.id);
                             }
                             // Keep Dismissible in tree until provider state refreshes.
                             return false;
@@ -535,17 +527,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             onTap: () => context.push(
                               '${RoutePaths.taskManage}?id=${task.id}',
                             ),
-                            onDelete: () async {
-                              await ref
-                                  .read(taskTimelineProviderProvider.notifier)
-                                  .deleteTask(task.id);
-                              await ref
-                                  .read(projectNotifierProvider.notifier)
-                                  .assignTaskToProject(
-                                    taskId: task.id,
-                                    projectId: null,
-                                  );
-                            },
+                            onDelete: () => _deleteAndUnassignTask(task.id),
                           ),
                         );
                       }, childCount: tasks.length),
@@ -596,6 +578,13 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
   void _toggleTaskFilter() {
     setState(() => _hideFinishedTasks = !_hideFinishedTasks);
     _recalculateExtraScrollSpace(hasTasks: true);
+  }
+
+  Future<void> _deleteAndUnassignTask(String taskId) async {
+    await ref.read(taskTimelineProviderProvider.notifier).deleteTask(taskId);
+    await ref
+        .read(projectNotifierProvider.notifier)
+        .assignTaskToProject(taskId: taskId, projectId: null);
   }
 
   void _recalculateExtraScrollSpace({required bool hasTasks}) {

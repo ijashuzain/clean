@@ -299,20 +299,34 @@ class ProjectsView extends ConsumerWidget {
                         final notifier = ref.read(
                           projectNotifierProvider.notifier,
                         );
-                        if (projectId == null) {
-                          await notifier.createProject(
-                            name: editedName,
-                            description: editedDescription,
+                        try {
+                          if (projectId == null) {
+                            await notifier.createProject(
+                              name: editedName,
+                              description: editedDescription,
+                            );
+                          } else {
+                            await notifier.updateProject(
+                              projectId: projectId,
+                              name: editedName,
+                              description: editedDescription,
+                            );
+                          }
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
+                        } catch (error, stackTrace) {
+                          debugPrint(
+                            'Project editor submission failed: $error\n$stackTrace',
                           );
-                        } else {
-                          await notifier.updateProject(
-                            projectId: projectId,
-                            name: editedName,
-                            description: editedDescription,
+                          if (!sheetContext.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(sheetContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Unable to save project'),
+                            ),
                           );
-                        }
-                        if (sheetContext.mounted) {
-                          Navigator.of(sheetContext).pop();
                         }
                       },
                       child: Text(

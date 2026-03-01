@@ -54,4 +54,31 @@ class Project {
       updatedAt: DateTime.tryParse(updatedRaw?.toString() ?? '') ?? now,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is Project &&
+        other.id == id &&
+        other.name == name &&
+        other.description == description &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, description, createdAt, updatedAt);
+
+  @override
+  String toString() {
+    return 'Project('
+        'id: $id, '
+        'name: $name, '
+        'description: $description, '
+        'createdAt: $createdAt, '
+        'updatedAt: $updatedAt'
+        ')';
+  }
 }

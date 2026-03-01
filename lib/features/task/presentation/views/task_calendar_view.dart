@@ -160,9 +160,10 @@ class _TaskCalendarViewState extends ConsumerState<TaskCalendarView> {
       return;
     }
 
-    _loadingMonthKeys.add(monthKey);
     if (mounted) {
-      setState(() {});
+      setState(() => _loadingMonthKeys.add(monthKey));
+    } else {
+      _loadingMonthKeys.add(monthKey);
     }
 
     final monthStart = DateTime(month.year, month.month, 1);
